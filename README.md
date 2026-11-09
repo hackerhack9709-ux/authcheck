@@ -60,15 +60,45 @@ POST <base>/api/analyze-image   -F "file=@photo.jpg"
 POST <base>/api/analyze-video   -F "file=@clip.mp4"
 POST <base>/api/analyze-audio   -F "file=@voice.wav"
 POST <base>/api/check-text      --data-urlencode "text=<claim>"
+GET  <base>/api/tiers
+GET  <base>/api/usage
 GET  <base>/api/health
 ```
 
-Optional environment variable:
+### Access tiers and quotas
+
+The four analysis endpoints are metered on a sliding one-hour window. A request
+without a key still works; it just uses the anonymous quota, so a missing or
+invalid key is never an error.
+
+| Tier | How you get it | Checks / hour |
+|------|----------------|---------------|
+| Anonymous | no key, limited by client IP | 20 |
+| Free | key issued on the free tier | 120 |
+| Pro | key issued on the pro tier | 2000 |
+
+Send the key as an `X-API-Key` header:
+
+```
+curl -H "X-API-Key: ac_…" <base>/api/usage
+```
+
+Every metered response carries `X-RateLimit-Tier`, `X-RateLimit-Limit` and
+`X-RateLimit-Remaining`. Over the limit returns `429` with `Retry-After`.
+
+Keys are created and revoked from the control room (`/panel` → API Keys). They
+are stored in SQLite under `data/`, which is excluded from the export bundle and
+from git. On hosts without a writable disk, supply keys through the
+`AUTHCHECK_API_KEYS` environment variable as `key:tier,key:tier` instead.
+
+Optional environment variables:
 
 | Name | Purpose |
 |------|---------|
 | `FACTCHECK_API_KEY` | Adds the Google Fact Check Tools lookup on top of the keyless references |
-| `PANEL_PIN` | Locks the control-room action buttons |
+| `PANEL_PIN` | Locks the control-room action buttons and the key-management endpoints |
+| `AUTHCHECK_API_KEYS` | Static keys for read-only filesystems, e.g. `ac_abc:pro,ac_def:free` |
+| `AUTHCHECK_DB` | Override the SQLite path (default `./data/authcheck.db`) |
 
 ## One-click control room
 
@@ -83,6 +113,7 @@ action:
 | Run Automation Now | Dispatches the daily job immediately |
 | Toggle Automation | Turns the daily job on or off |
 | Share Links | Builds WhatsApp / Telegram links and copy text |
+| API Keys | Creates, lists and revokes free/pro API keys |
 | Full Status | Routes, files, python version, uptime |
 | Download Everything | Zips the whole project for backup or hand-off |
 | Permanent Deploy | Copyable GitHub + Render steps |

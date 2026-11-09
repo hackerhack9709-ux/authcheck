@@ -5,9 +5,11 @@ import io
 import os
 from pathlib import Path
 
-from fastapi import FastAPI, File, Form, UploadFile
+from fastapi import FastAPI, File, Form, Request, UploadFile
 from fastapi.responses import HTMLResponse, JSONResponse
 from PIL import Image
+
+import keys
 
 from core import (
     FACTCHECK_KEY,
@@ -28,6 +30,48 @@ from core import (
 )
 
 app = FastAPI(title="AuthCheck")
+
+
+def _client_ip(request: Request) -> str:
+    forwarded = request.headers.get("x-forwarded-for", "")
+    if forwarded:
+        return forwarded.split(",")[0].strip()
+    return request.client.host if request.client else "unknown"
+
+
+@app.middleware("http")
+async def meter_requests(request: Request, call_next):
+    """Apply per-tier quotas to the analysis endpoints.
+
+    Anonymous callers are limited by IP, keyed callers by their key. A bad key
+    is not an error - it simply falls back to the anonymous quota.
+    """
+    if not keys.is_metered(request.url.path):
+        return await call_next(request)
+
+    identity = keys.identify(request.headers.get("x-api-key", "").strip(), _client_ip(request))
+    quota = keys.check_rate(identity["bucket"], identity["tier"])
+    if not quota["allowed"]:
+        return JSONResponse(
+            {
+                "ok": False,
+                "error": "rate limit exceeded",
+                "tier": quota["tier"],
+                "limit_per_hour": quota["limit_per_hour"],
+                "reset_in_seconds": quota["reset_in_seconds"],
+                "hint": "Add an X-API-Key header for a higher quota.",
+            },
+            status_code=429,
+            headers={"Retry-After": str(quota["reset_in_seconds"])},
+        )
+
+    response = await call_next(request)
+    response.headers["X-RateLimit-Tier"] = quota["tier"]
+    response.headers["X-RateLimit-Limit"] = str(quota["limit_per_hour"])
+    response.headers["X-RateLimit-Remaining"] = str(quota["remaining"])
+    if identity["valid_key"]:
+        keys.record_usage(identity["key"]["key"])
+    return response
 
 from panel import router as panel_router  # noqa: E402
 app.include_router(panel_router)
@@ -110,6 +154,28 @@ def health():
         "layers": ["c2pa", "exif", "ela", "noise", "heuristics", "text", "audio", "video"],
         "languages": sorted(LEXICONS.keys()),
         "version": VERSION,
+    }
+
+
+@app.get("/api/tiers")
+def tiers():
+    """Public pricing surface: what each tier gets, so a client can self-serve."""
+    return {"ok": True, "tiers": keys.usage_summary()["tiers"], "metered_endpoints": list(keys.METERED_PREFIXES)}
+
+
+@app.get("/api/usage")
+def usage(request: Request):
+    """Live quota for the caller - anonymous by IP, keyed callers by key."""
+    identity = keys.identify(request.headers.get("x-api-key", "").strip(), _client_ip(request))
+    quota = keys.check_rate(identity["bucket"], identity["tier"])
+    return {
+        "ok": True,
+        "tier": identity["tier"],
+        "key_name": (identity["key"] or {}).get("name"),
+        "valid_key": identity["valid_key"],
+        "limit_per_hour": quota["limit_per_hour"],
+        "remaining": quota["remaining"],
+        "reset_in_seconds": quota["reset_in_seconds"],
     }
 
 

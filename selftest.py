@@ -24,6 +24,7 @@ import wave
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 import core  # noqa: E402
+import keys  # noqa: E402
 
 
 # --------------------------------------------------------------------------- #
@@ -179,6 +180,15 @@ def run_checks() -> tuple[bool, list[dict]]:
     ref = core.lookup_references("WHO declared the COVID-19 pandemic in March 2020")
     check("references shape", set(("provider", "query", "hit_count")) <= set(ref), True)
     check("references note present", "not make the claim true" in (ref.get("note") or ""), True)
+
+    # 10. API-key tiers and quotas
+    check("anonymous tier has a limit", keys.TIERS["anonymous"]["limit"] > 0, True)
+    check("pro tier outranks anonymous", keys.TIERS["pro"]["limit"] > keys.TIERS["anonymous"]["limit"], True)
+    check("analysis endpoints are metered", keys.is_metered("/api/check-text"), True)
+    check("health is not metered", keys.is_metered("/api/health"), False)
+    unknown = keys.identify("ac_definitely-not-a-real-key", "10.0.0.1")
+    check("bad key falls back to anonymous", unknown["tier"], "anonymous")
+    check("bad key is flagged invalid", unknown["valid_key"], False)
 
     passed = all(c["ok"] for c in CHECKS)
     return passed, CHECKS

@@ -134,6 +134,11 @@ pre{margin:0;font-family:var(--f-m);font-size:.72rem;line-height:1.7;white-space
       <span class="t">Share Links</span>
       <span class="d">WhatsApp / Telegram links + copy text bana deta hai.</span>
     </button>
+    <button class="btn" id="bKeys">
+      <span class="tag">monetise</span><span class="ic">🔑</span>
+      <span class="t">API Keys</span>
+      <span class="d">Free/Pro keys banao aur revoke karo. Pro = 2000 checks/hour.</span>
+    </button>
     <button class="btn" id="bStatus">
       <span class="tag">1 click</span><span class="ic">📊</span>
       <span class="t">Full Status</span>
@@ -316,6 +321,56 @@ $('bShare').onclick = async () => {
       <pre>${esc(d.message)}</pre>`;
     card('Share', stamp(), h, 'ok');
   } catch(e){ card('Share', stamp(), esc(e.message), 'err'); }
+  finally { busy(b, false); }
+};
+
+// ---------- API keys ----------
+async function renderKeys(){
+  const d = await get('/panel/api/keys?pin=' + encodeURIComponent(pin()));
+  if (!d.ok){ card('API Keys', stamp(), esc(d.error || 'failed'), 'err'); return; }
+  const rows = (d.keys||[]).map(k => `<div class="row" style="padding:8px 0;border:0">
+      <span class="mono" style="flex:1">${esc(k.masked)}</span>
+      <span class="small">${esc(k.tier)} · ${k.requests} reqs</span>
+      <button class="small" onclick="copyKey('${esc(k.key)}')">Copy</button>
+      ${k.revoked ? '<span class="small">revoked</span>'
+        : `<button class="small" onclick="revokeKey('${esc(k.key)}')">Revoke</button>`}
+    </div>`).join('') || '<div class="small">No keys yet. Create one below.</div>';
+  const h = `<div class="small" style="margin-bottom:10px">Storage: ${esc(d.usage.storage)} · ${d.usage.keys_in_use} key(s) used this run</div>
+    ${rows}
+    <div class="row" style="padding:14px 0 0;border:0">
+      <input id="kName" class="small" style="flex:1;padding:8px;background:var(--ink-3);border:1px solid var(--line-2);color:inherit" placeholder="Key name (e.g. Acme Newsroom)"/>
+      <select id="kTier" class="small" style="padding:8px;background:var(--ink-3);border:1px solid var(--line-2);color:inherit">
+        <option value="pro">pro</option><option value="free">free</option>
+      </select>
+      <button class="small" onclick="createKey()">Create key</button>
+    </div>`;
+  card('API Keys', stamp(), h, 'ok');
+}
+async function createKey(){
+  const fd = new FormData();
+  fd.append('name', $('kName').value || 'unnamed');
+  fd.append('tier', $('kTier').value);
+  fd.append('pin', pin());
+  const d = await post('/panel/api/keys', fd);
+  if (!d.ok){ card('Create key', stamp(), esc(d.error || 'failed'), 'err'); return; }
+  card('New key created', stamp(), `<div class="small">Copy it now — store it safely.</div>
+    <pre>${esc(d.key.key)}</pre>
+    <button class="small" onclick="copyKey('${esc(d.key.key)}')">Copy key</button>`, 'ok');
+  renderKeys();
+}
+async function revokeKey(key){
+  if (!confirm('Revoke this key? Clients using it will drop to the anonymous quota.')) return;
+  const fd = new FormData(); fd.append('key', key); fd.append('pin', pin());
+  const d = await post('/panel/api/keys/revoke', fd);
+  card('Revoke', stamp(), d.ok ? 'Key revoked.' : esc(d.error || 'failed'), d.ok ? 'ok' : 'err');
+  renderKeys();
+}
+function copyKey(k){ navigator.clipboard.writeText(k); }
+
+$('bKeys').onclick = async () => {
+  const b = $('bKeys'); busy(b, true);
+  try { await renderKeys(); }
+  catch(e){ card('API Keys', stamp(), esc(e.message), 'err'); }
   finally { busy(b, false); }
 };
 

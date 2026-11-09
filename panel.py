@@ -22,6 +22,7 @@ from fastapi.responses import HTMLResponse, JSONResponse, Response
 
 import selftest
 import core
+import keys
 
 ROOT = Path(__file__).resolve().parent
 STARTED = time.time()
@@ -104,6 +105,7 @@ def status():
         },
         "public_url": _public_base(),
         "pin_required": bool(PANEL_PIN),
+        "keys": keys.usage_summary(),
     }
 
 
@@ -213,9 +215,9 @@ def export_bundle(pin: str = ""):
                 continue
             rel = p.relative_to(ROOT)
             # build environments live inside the project dir on some hosts
-            if any(part in {"__pycache__", ".git", ".venv", "venv"} for part in rel.parts):
+            if any(part in {"__pycache__", ".git", ".venv", "venv", "data"} for part in rel.parts):
                 continue
-            if p.suffix in {".log", ".gz", ".pyc"}:
+            if p.suffix in {".log", ".gz", ".pyc", ".db"}:
                 continue
             # never bundle secrets or runtime state into a shareable archive
             if p.name in {".panel_pin", ".authcheck.pid", ".env"}:
@@ -236,7 +238,42 @@ def export_bundle(pin: str = ""):
 
 
 # --------------------------------------------------------------------------- #
-# 6. share text (WhatsApp / copy)
+# 6. API keys (monetisation: free vs pro tiers)
+# --------------------------------------------------------------------------- #
+@router.get("/panel/api/keys")
+def list_api_keys(pin: str = ""):
+    if not _authorised(pin):
+        return _denied()
+    return {"ok": True, "keys": keys.list_keys(), "usage": keys.usage_summary(), "checked_at": _now()}
+
+
+@router.post("/panel/api/keys")
+def create_api_key(name: str = Form(""), tier: str = Form("pro"), pin: str = Form("")):
+    if not _authorised(pin):
+        return _denied()
+    if tier not in keys.TIERS:
+        return JSONResponse({"ok": False, "error": f"unknown tier: {tier}"}, status_code=400)
+    if not keys.storage_available():
+        return JSONResponse(
+            {
+                "ok": False,
+                "error": "no writable disk - set AUTHCHECK_API_KEYS in the environment instead",
+            },
+            status_code=503,
+        )
+    record = keys.create_key(name, tier)
+    return {"ok": True, "key": record, "created_at": _now()}
+
+
+@router.post("/panel/api/keys/revoke")
+def revoke_api_key(key: str = Form(...), pin: str = Form("")):
+    if not _authorised(pin):
+        return _denied()
+    return {"ok": keys.revoke_key(key), "revoked_at": _now()}
+
+
+# --------------------------------------------------------------------------- #
+# 7. share text (WhatsApp / copy)
 # --------------------------------------------------------------------------- #
 @router.post("/panel/api/share")
 def share(url: str = Form("")):

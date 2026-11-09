@@ -179,6 +179,24 @@ textarea:focus{outline:none;border-color:var(--amber)}
 .ep .verb{font-family:var(--f-mono);font-size:.64rem;letter-spacing:.14em;color:var(--good);border:1px solid #1d4433;padding:3px 9px;white-space:nowrap}
 .ep .path{font-family:var(--f-mono);font-size:.8rem;color:var(--text)}
 .ep .desc{font-size:.84rem;color:var(--muted);grid-column:2;margin-top:4px}
+.authnote{margin-top:18px;border-left:2px solid var(--amber-dim);background:var(--ink-2);
+  padding:14px 18px;font-family:var(--f-mono);font-size:.7rem;line-height:1.85;color:var(--muted)}
+.authnote b{color:var(--text);font-weight:400}
+.passes{margin-top:6px;display:grid;grid-template-columns:repeat(3,1fr);gap:18px}
+.pass{border:1px solid var(--line);background:var(--ink-2);padding:24px;position:relative;
+  display:flex;flex-direction:column;transition:.2s}
+.pass:hover{background:var(--ink-3)}
+.pass.paid{background:var(--ink);border-color:var(--line-2);box-shadow:inset 0 2px 0 var(--amber)}
+.pass .ptag{font-family:var(--f-mono);font-size:.58rem;letter-spacing:.2em;text-transform:uppercase;color:var(--amber-dim)}
+.pass h3{font-family:var(--f-display);font-weight:800;font-size:1.35rem;letter-spacing:-.022em;margin:14px 0 6px}
+.pass .quota{font-family:var(--f-mono);font-size:.78rem;letter-spacing:.05em;color:var(--amber)}
+.pass dl{margin:20px 0 0;padding:0}
+.pass .kv{padding:9px 0;border-bottom:1px solid var(--ink-4)}
+.pass .kv:last-child{border-bottom:0}
+.pass .seal{position:absolute;top:20px;right:20px;font-family:var(--f-mono);font-size:.56rem;
+  letter-spacing:.2em;text-transform:uppercase;color:var(--muted-2);border:1px solid var(--line-2);
+  padding:4px 9px;transform:rotate(3deg)}
+.pass.paid .seal{color:var(--amber);border-color:var(--amber-dim)}
 footer{padding:52px 0 70px;border-top:1px solid var(--line)}
 .foot{display:grid;grid-template-columns:1.4fr 1fr 1fr;gap:34px}
 .foot h5{font-family:var(--f-mono);font-size:.62rem;letter-spacing:.2em;text-transform:uppercase;color:var(--amber);margin:0 0 14px;font-weight:500}
@@ -197,7 +215,7 @@ footer{padding:52px 0 70px;border-top:1px solid var(--line)}
 }
 @media(max-width:680px){
   body{font-size:16px}
-  .cards,.cases,.limits,.exhibits,.pipe,.hero-stats{grid-template-columns:1fr}
+  .cards,.cases,.limits,.exhibits,.pipe,.hero-stats,.passes{grid-template-columns:1fr}
   .dossier-head{grid-template-columns:1fr;gap:18px}
   .stamp{transform:rotate(-4deg);justify-self:start}
   .navlinks{display:none}
@@ -226,6 +244,7 @@ footer{padding:52px 0 70px;border-top:1px solid var(--line)}
     <a href="#cases">Case Files</a>
     <a href="#limits">Limits</a>
     <a href="#api">API</a>
+    <a href="#tiers">Access</a>
     <a href="/panel" class="ctrl">Control Room →</a>
   </div>
 </nav>
@@ -365,8 +384,8 @@ footer{padding:52px 0 70px;border-top:1px solid var(--line)}
         <p>Container facts, stream metadata and evenly sampled keyframes run through the full image engine, then fused into one verdict.</p>
         <span class="weight">Clip · keyframe sampling</span></div>
       <div class="card"><div class="num">SIGNAL / 10</div><h3>API first</h3>
-        <p>Every layer is a plain JSON endpoint you can call from your own app, bot or newsroom tool. No key needed.</p>
-        <span class="weight">Free · open endpoints</span></div>
+        <p>Every layer is a plain JSON endpoint you can call from your own app, bot or newsroom tool. Works with no key at all; a key just raises the hourly ceiling.</p>
+        <span class="weight">Free · metered endpoints</span></div>
     </div>
   </div>
 </section>
@@ -457,14 +476,16 @@ footer{padding:52px 0 70px;border-top:1px solid var(--line)}
     <div class="sec-head">
       <div class="eyebrow">Exhibit F · Interface</div>
       <h2>Use it from <em>code</em>.</h2>
-      <p>Same engine, plain JSON. No key required for the analysis endpoints.</p>
+      <p>Same engine, plain JSON. Anonymous use is rate-limited by IP; add a key for more headroom.</p>
     </div>
     <div class="code">
+      $ curl -X POST <b>&lt;base&gt;/api/check-text</b> -F "text=claim to check"<br/>
+      { <i>"score"</i>: 38, <i>"verdict"</i>: "likely-misleading", <i>"flags"</i>: [ … ], <i>"factcheck"</i>: { … } }<br/>
       $ curl -X POST <b>&lt;base&gt;/api/analyze-image</b> -F "file=@photo.jpg"<br/>
       { <i>"verdict"</i>: { <i>"score"</i>: 62, <i>"band"</i>: "unclear - check sources", <i>"reasons"</i>: [ … ] },<br/>
       &nbsp;&nbsp;<i>"c2pa"</i>: { … }, <i>"exif"</i>: { … }, <i>"ela"</i>: { … }, <i>"heuristics"</i>: [ … ] }<br/>
-      $ curl -X POST <b>&lt;base&gt;/api/analyze-video</b> -F "file=@clip.mp4"<br/>
-      { <i>"verdict"</i>: { <i>"score"</i>: 28, <i>"band"</i>: "higher risk" }, <i>"container"</i>: { … }, <i>"keyframes"</i>: [ … ] }
+      $ curl -H <b>"X-API-Key: ac_…"</b> <b>&lt;base&gt;/api/usage</b><br/>
+      { <i>"tier"</i>: "pro", <i>"limit_per_hour"</i>: 2000, <i>"remaining"</i>: 1998 }
     </div>
     <div class="endpoints">
       <div class="ep"><span class="verb">POST</span><span class="path">/api/analyze-image</span>
@@ -475,8 +496,71 @@ footer{padding:52px 0 70px;border-top:1px solid var(--line)}
         <span class="desc">Audio upload → container metadata, TTS signatures, clipping/silence analysis, fused verdict.</span></div>
       <div class="ep"><span class="verb">POST</span><span class="path">/api/analyze-video</span>
         <span class="desc">Video upload → container facts, sampled keyframes run through the image engine, fused verdict. Needs ffmpeg (bundled via <span class="mono">imageio-ffmpeg</span>).</span></div>
+      <div class="ep"><span class="verb">GET</span><span class="path">/api/tiers</span>
+        <span class="desc">The tiers and their hourly quotas, so a client can self-serve.</span></div>
+      <div class="ep"><span class="verb">GET</span><span class="path">/api/usage</span>
+        <span class="desc">Live quota for the caller. Send <span class="mono">X-API-Key</span> to see the keyed tier.</span></div>
       <div class="ep"><span class="verb">GET</span><span class="path">/api/health</span>
         <span class="desc">Liveness, enabled layers, supported languages, and fact-check status.</span></div>
+    </div>
+    <div class="authnote">
+      Requests over the limit return <span class="mono">429</span> with a <span class="mono">Retry-After</span>
+      header. Every metered response carries <span class="mono">X-RateLimit-Tier</span>,
+      <span class="mono">X-RateLimit-Limit</span> and <span class="mono">X-RateLimit-Remaining</span>.
+    </div>
+  </div>
+</section>
+
+<section id="tiers">
+  <div class="wrap">
+    <div class="sec-head">
+      <div class="eyebrow">Exhibit G · Credentials</div>
+      <h2>Three ways in. One <em>engine</em>.</h2>
+      <p>The analysis is identical on every pass. What changes is how much of it you may run,
+        and how fast. Nothing is held back behind a paywall except volume.</p>
+    </div>
+    <div class="passes">
+      <div class="pass">
+        <span class="seal">No sign-up</span>
+        <div class="ptag">Pass I · Walk-in</div>
+        <h3>Anonymous</h3>
+        <div class="quota">20 checks / hour</div>
+        <dl>
+          <div class="kv"><b>Quota key</b><span>client IP address</span></div>
+          <div class="kv"><b>Layers</b><span>all ten</span></div>
+          <div class="kv"><b>Cost</b><span>free, forever</span></div>
+          <div class="kv"><b>Best for</b><span>a quick second opinion</span></div>
+        </dl>
+      </div>
+      <div class="pass">
+        <span class="seal">Issued</span>
+        <div class="ptag">Pass II · Registered</div>
+        <h3>Free key</h3>
+        <div class="quota">120 checks / hour</div>
+        <dl>
+          <div class="kv"><b>Quota key</b><span>your <span class="mono">X-API-Key</span></span></div>
+          <div class="kv"><b>Layers</b><span>all ten</span></div>
+          <div class="kv"><b>Cost</b><span>free, on request</span></div>
+          <div class="kv"><b>Best for</b><span>a personal project or bot</span></div>
+        </dl>
+      </div>
+      <div class="pass paid">
+        <span class="seal">Issued</span>
+        <div class="ptag">Pass III · Desk</div>
+        <h3>Pro key</h3>
+        <div class="quota">2000 checks / hour</div>
+        <dl>
+          <div class="kv"><b>Quota key</b><span>your <span class="mono">X-API-Key</span></span></div>
+          <div class="kv"><b>Layers</b><span>all ten</span></div>
+          <div class="kv"><b>Cost</b><span>paid, per desk</span></div>
+          <div class="kv"><b>Best for</b><span>newsrooms and platforms</span></div>
+        </dl>
+      </div>
+    </div>
+    <div class="authnote">
+      <b>Every pass is metered the same way</b> — a sliding one-hour window on the four analysis
+      endpoints. A request with no key, or a revoked one, is never an error: it simply falls back
+      to the walk-in quota. Keys are issued and struck out from the control room.
     </div>
   </div>
 </section>
