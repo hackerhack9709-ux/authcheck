@@ -212,14 +212,19 @@ def export_bundle(pin: str = ""):
             if not p.is_file():
                 continue
             rel = p.relative_to(ROOT)
-            if any(part in {"__pycache__", ".git"} for part in rel.parts):
+            # build environments live inside the project dir on some hosts
+            if any(part in {"__pycache__", ".git", ".venv", "venv"} for part in rel.parts):
                 continue
             if p.suffix in {".log", ".gz", ".pyc"}:
                 continue
             # never bundle secrets or runtime state into a shareable archive
             if p.name in {".panel_pin", ".authcheck.pid", ".env"}:
                 continue
-            z.write(p, str(rel))
+            # build systems stamp files with pre-1980 mtimes, which zipfile rejects
+            info = zipfile.ZipInfo(str(rel), date_time=(1980, 1, 1, 0, 0, 0))
+            info.compress_type = zipfile.ZIP_DEFLATED
+            with open(p, "rb") as src:
+                z.writestr(info, src.read())
         z.writestr("EXPORT-INFO.txt", f"AuthCheck export\ncreated: {_now()}\nfiles bundled from: {ROOT}\n")
     buf.seek(0)
     stamp = datetime.now(timezone.utc).strftime("%Y%m%d-%H%M%S")
