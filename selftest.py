@@ -18,10 +18,15 @@ import json
 import math
 import os
 import sys
+import tempfile
 import urllib.request
 import wave
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+
+# Keep the self-test off the live key store: point both modules at a scratch DB
+# before they read AUTHCHECK_DB at import time.
+os.environ.setdefault("AUTHCHECK_DB", os.path.join(tempfile.gettempdir(), "authcheck_selftest.db"))
 
 import core  # noqa: E402
 import keys  # noqa: E402
@@ -189,6 +194,26 @@ def run_checks() -> tuple[bool, list[dict]]:
     unknown = keys.identify("ac_definitely-not-a-real-key", "10.0.0.1")
     check("bad key falls back to anonymous", unknown["tier"], "anonymous")
     check("bad key is flagged invalid", unknown["valid_key"], False)
+
+    # 11. Billing: plans, signature verification and idempotent fulfilment
+    import billing
+    plans = {p["id"]: p for p in billing.plans_public()}
+    check("pro plan is priced", plans.get("pro", {}).get("amount_inr", 0) > 0, True)
+    check("pro plan maps to desk tier", plans.get("pro", {}).get("tier"), "desk")
+    check("desk tier outranks pro", keys.TIERS["desk"]["limit"] > keys.TIERS["pro"]["limit"], True)
+
+    bad = billing.handle_webhook(b'{"event":"payment_link.paid"}', "deadbeef", {})
+    check("webhook rejects bad signature", bad["ok"], False)
+
+    ref = "authcheck-pro-selftest01"
+    billing._record(ref, "pro", 499, "buyer@example.com", status="link_created")
+    first = billing.fulfil_payment(ref, "pay_test_1", "buyer@example.com")
+    second = billing.fulfil_payment(ref, "pay_test_1", "buyer@example.com")
+    check("payment issues a key", first.get("ok") and first["key"].startswith("ac_"), True)
+    check("fulfilment is idempotent", second.get("already_issued") and second["key"] == first["key"], True)
+    check("issued key is on the paid tier", keys.identify(first["key"], "10.0.0.9")["tier"], "desk")
+    keys.revoke_key(first["key"])
+    check("revoked key drops to anonymous", keys.identify(first["key"], "10.0.0.9")["tier"], "anonymous")
 
     passed = all(c["ok"] for c in CHECKS)
     return passed, CHECKS

@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import io
+import json
 import os
 from pathlib import Path
 
@@ -10,6 +11,7 @@ from fastapi.responses import HTMLResponse, JSONResponse
 from PIL import Image
 
 import keys
+import billing
 
 from core import (
     FACTCHECK_KEY,
@@ -177,6 +179,85 @@ def usage(request: Request):
         "remaining": quota["remaining"],
         "reset_in_seconds": quota["reset_in_seconds"],
     }
+
+
+@app.get("/api/plans")
+def api_plans():
+    """Public plan catalogue with prices, so the landing page can render itself."""
+    return {"ok": True, **billing.billing_summary()}
+
+
+@app.post("/billing/checkout")
+async def billing_checkout(plan: str = Form(...), email: str = Form("")):
+    """Open a Razorpay payment link for a plan and hand the URL back to the browser."""
+    base = os.environ.get("AUTHCHECK_PUBLIC_URL", "").strip()
+    return billing.create_payment_link(plan, email=email.strip(), base_url=base)
+
+
+@app.post("/billing/webhook")
+async def billing_webhook(request: Request):
+    """Razorpay callback. Verified by HMAC before anything is issued."""
+    raw = await request.body()
+    signature = request.headers.get("x-razorpay-signature", "")
+    result = billing.handle_webhook(raw, signature, dict(request.headers))
+    return JSONResponse(result, status_code=200 if result.get("ok") else 400)
+
+
+@app.get("/billing/status")
+def billing_status(ref: str = ""):
+    """Polled by the success page until the webhook has issued the key."""
+    issued = billing.issued_key_for(ref) if ref else None
+    return {"ok": True, "reference": ref, "issued": bool(issued), "key": issued or ""}
+
+
+@app.get("/billing/success", response_class=HTMLResponse)
+def billing_success(ref: str = "", key: str = ""):
+    """Post-payment landing. The key arrives here when the webhook already ran."""
+    safe_key = key if key.startswith("ac_") else ""
+    body = f"""
+    <!doctype html><html><head><meta charset="utf-8">
+    <meta name="viewport" content="width=device-width,initial-scale=1">
+    <title>AuthCheck — payment received</title>
+    <style>
+      body{{background:#0a0b0d;color:#e7e5e0;font-family:Georgia,serif;margin:0;
+        display:flex;min-height:100vh;align-items:center;justify-content:center;padding:24px}}
+      .card{{max-width:640px;border:1px solid #272c34;background:#101215;padding:40px}}
+      .tag{{font-family:ui-monospace,monospace;font-size:.62rem;letter-spacing:.24em;
+        text-transform:uppercase;color:#ffc63d}}
+      h1{{font-size:1.9rem;margin:14px 0 8px}}
+      p{{color:#8b8f98;line-height:1.7;font-size:.95rem}}
+      pre{{background:#171a1f;border:1px solid #343a44;padding:16px;overflow:auto;
+        font-family:ui-monospace,monospace;font-size:.8rem;color:#3ecf8e}}
+      .note{{font-family:ui-monospace,monospace;font-size:.68rem;color:#5f646d;margin-top:18px}}
+      a{{color:#ffc63d}}
+    </style></head><body><div class="card">
+      <div class="tag">AuthCheck · Payment received</div>
+      <h1>Thank you.</h1>
+      {"<p>Your API key is below. Keep it safe — treat it like a password.</p><pre>" + safe_key + "</pre>"
+       if safe_key else
+       "<p>We are confirming the payment with Razorpay. Your API key will be issued "
+       "to this page in a moment — refresh in a few seconds.</p>"}
+      <p>Use it as an <span style="font-family:ui-monospace,monospace">X-API-Key</span> header:</p>
+      <pre>curl -H "X-API-Key: {'&lt;key&gt;' if not safe_key else safe_key}" {'&lt;base&gt;'}/api/usage</pre>
+      <div class="note">Reference: {ref or '—'}</div>
+      <p><a href="/">Back to the desk →</a></p>
+    </div>
+    <script>
+      const ref = {json.dumps(ref)};
+      const haveKey = {str(bool(safe_key)).lower()};
+      if (ref && !haveKey) {{
+        const t = setInterval(async () => {{
+          try {{
+            const r = await fetch('/billing/status?ref=' + encodeURIComponent(ref));
+            const d = await r.json();
+            if (d.issued) {{ clearInterval(t); location.search = '?ref=' + encodeURIComponent(ref) + '&key=' + encodeURIComponent(d.key); }}
+          }} catch (e) {{}}
+        }}, 3000);
+        setTimeout(() => clearInterval(t), 120000);
+      }}
+    </script></body></html>
+    """
+    return HTMLResponse(body)
 
 
 @app.get("/", response_class=HTMLResponse)

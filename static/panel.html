@@ -137,7 +137,12 @@ pre{margin:0;font-family:var(--f-m);font-size:.72rem;line-height:1.7;white-space
     <button class="btn" id="bKeys">
       <span class="tag">monetise</span><span class="ic">🔑</span>
       <span class="t">API Keys</span>
-      <span class="d">Free/Pro keys banao aur revoke karo. Pro = 2000 checks/hour.</span>
+      <span class="d">Free/Pro/Desk keys banao aur revoke karo.</span>
+    </button>
+    <button class="btn" id="bBilling">
+      <span class="tag">monetise</span><span class="ic">💳</span>
+      <span class="t">Payments</span>
+      <span class="d">Razorpay status, plans aur recent purchases dekho.</span>
     </button>
     <button class="btn" id="bStatus">
       <span class="tag">1 click</span><span class="ic">📊</span>
@@ -340,7 +345,7 @@ async function renderKeys(){
     <div class="row" style="padding:14px 0 0;border:0">
       <input id="kName" class="small" style="flex:1;padding:8px;background:var(--ink-3);border:1px solid var(--line-2);color:inherit" placeholder="Key name (e.g. Acme Newsroom)"/>
       <select id="kTier" class="small" style="padding:8px;background:var(--ink-3);border:1px solid var(--line-2);color:inherit">
-        <option value="pro">pro</option><option value="free">free</option>
+        <option value="desk">desk</option><option value="pro">pro</option><option value="free">free</option>
       </select>
       <button class="small" onclick="createKey()">Create key</button>
     </div>`;
@@ -371,6 +376,42 @@ $('bKeys').onclick = async () => {
   const b = $('bKeys'); busy(b, true);
   try { await renderKeys(); }
   catch(e){ card('API Keys', stamp(), esc(e.message), 'err'); }
+  finally { busy(b, false); }
+};
+
+// ---------- payments (Razorpay) ----------
+async function renderBilling(){
+  const d = await get('/panel/api/billing?pin=' + encodeURIComponent(pin()));
+  if (!d.ok){ card('Payments', stamp(), esc(d.error || 'failed'), 'err'); return; }
+  const b = d.billing || {};
+  const plans = (b.plans||[]).map(p =>
+    `<div class="row" style="padding:6px 0;border:0"><span class="mono" style="flex:1">${esc(p.name)}</span>
+     <span class="small">₹${p.amount_inr}/mo · ${p.limit_per_hour}/hr · tier ${esc(p.tier)}</span></div>`).join('');
+  const rows = (d.purchases||[]).map(p =>
+    `<div class="row" style="padding:6px 0;border:0"><span class="mono" style="flex:1">${esc(p.reference)}</span>
+     <span class="small">₹${p.amount_inr} · ${esc(p.plan)} · ${esc(p.status)}${p.issued_key ? ' · ' + esc(p.issued_key) : ''}</span>
+     ${p.status === 'paid' ? '' : `<button class="small" onclick="issueRef('${esc(p.reference)}')">Issue key</button>`}</div>`).join('')
+     || '<div class="small">No purchases yet.</div>';
+  const h = `<div class="small" style="margin-bottom:12px">
+      Provider: <b>${esc(b.provider || '—')}</b> ·
+      keys: ${b.configured ? '<span style="color:var(--good)">configured ✓</span>' : '<span style="color:var(--stamp)">missing RAZORPAY_KEY_ID / RAZORPAY_KEY_SECRET</span>'} ·
+      webhook: ${b.webhook_configured ? '<span style="color:var(--good)">configured ✓</span>' : '<span style="color:var(--stamp)">missing RAZORPAY_WEBHOOK_SECRET</span>'}
+    </div>
+    <div class="small" style="margin:10px 0 4px;color:var(--muted-2)">PLANS</div>${plans}
+    <div class="small" style="margin:14px 0 4px;color:var(--muted-2)">RECENT PURCHASES</div>${rows}`;
+  card('Payments', stamp(), h, 'ok');
+}
+async function issueRef(ref){
+  const fd = new FormData(); fd.append('reference', ref); fd.append('pin', pin());
+  const d = await post('/panel/api/billing/issue', fd);
+  card('Issue key', stamp(), d.ok ? `Key issued: ${esc(d.key)}` : esc(d.error || 'failed'), d.ok ? 'ok' : 'err');
+  renderBilling();
+}
+
+$('bBilling').onclick = async () => {
+  const b = $('bBilling'); busy(b, true);
+  try { await renderBilling(); }
+  catch(e){ card('Payments', stamp(), esc(e.message), 'err'); }
   finally { busy(b, false); }
 };
 

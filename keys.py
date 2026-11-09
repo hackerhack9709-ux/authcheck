@@ -30,6 +30,7 @@ TIERS = {
     "anonymous": {"limit": 20, "label": "Anonymous"},
     "free": {"limit": 120, "label": "Free"},
     "pro": {"limit": 2000, "label": "Pro"},
+    "desk": {"limit": 10000, "label": "Desk"},
 }
 
 METERED_PREFIXES = ("/api/check-text", "/api/analyze-image", "/api/analyze-audio", "/api/analyze-video")

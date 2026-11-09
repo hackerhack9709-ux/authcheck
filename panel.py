@@ -23,6 +23,7 @@ from fastapi.responses import HTMLResponse, JSONResponse, Response
 import selftest
 import core
 import keys
+import billing
 
 ROOT = Path(__file__).resolve().parent
 STARTED = time.time()
@@ -106,6 +107,7 @@ def status():
         "public_url": _public_base(),
         "pin_required": bool(PANEL_PIN),
         "keys": keys.usage_summary(),
+        "billing": billing.billing_summary(),
     }
 
 
@@ -270,6 +272,27 @@ def revoke_api_key(key: str = Form(...), pin: str = Form("")):
     if not _authorised(pin):
         return _denied()
     return {"ok": keys.revoke_key(key), "revoked_at": _now()}
+
+
+@router.get("/panel/api/billing")
+def billing_overview(pin: str = ""):
+    if not _authorised(pin):
+        return _denied()
+    return {
+        "ok": True,
+        "billing": billing.billing_summary(),
+        "purchases": billing.recent_purchases(20),
+        "checked_at": _now(),
+    }
+
+
+@router.post("/panel/api/billing/issue")
+def billing_issue(reference: str = Form(...), pin: str = Form("")):
+    """Manually issue a key for a paid reference (webhook fallback)."""
+    if not _authorised(pin):
+        return _denied()
+    result = billing.fulfil_payment(reference, payment_id="manual", email="")
+    return result
 
 
 # --------------------------------------------------------------------------- #

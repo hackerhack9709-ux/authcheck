@@ -75,7 +75,8 @@ invalid key is never an error.
 |------|----------------|---------------|
 | Anonymous | no key, limited by client IP | 20 |
 | Free | key issued on the free tier | 120 |
-| Pro | key issued on the pro tier | 2000 |
+| Pro | paid — Starter, ₹99/month | 2000 |
+| Desk | paid — Pro desk, ₹499/month | 10000 |
 
 Send the key as an `X-API-Key` header:
 
@@ -99,6 +100,23 @@ Optional environment variables:
 | `PANEL_PIN` | Locks the control-room action buttons and the key-management endpoints |
 | `AUTHCHECK_API_KEYS` | Static keys for read-only filesystems, e.g. `ac_abc:pro,ac_def:free` |
 | `AUTHCHECK_DB` | Override the SQLite path (default `./data/authcheck.db`) |
+| `AUTHCHECK_PUBLIC_URL` | Public base URL; used as the Razorpay callback target |
+| `RAZORPAY_KEY_ID` | Razorpay key id — enables checkout |
+| `RAZORPAY_KEY_SECRET` | Razorpay key secret — enables checkout |
+| `RAZORPAY_WEBHOOK_SECRET` | Verifies webhook signatures before a key is issued |
+
+### Selling keys (Razorpay)
+
+Plans live in `billing.py` (`starter` ₹99 → pro tier, `pro` ₹499 → desk tier).
+A buyer clicks Buy on the landing page, we open a Razorpay Payment Link with the
+plan in its notes, and Razorpay calls `POST /billing/webhook` on payment. The
+webhook signature is verified with `RAZORPAY_WEBHOOK_SECRET`, then a key is
+issued on the matching tier and shown on `/billing/success`. Fulfilment is
+idempotent, so replayed webhooks return the same key.
+
+Point Razorpay's webhook at `https://<your-host>/billing/webhook` and subscribe
+to `payment_link.paid`. Without the three Razorpay variables the checkout
+endpoint reports exactly which ones are missing instead of failing silently.
 
 ## One-click control room
 
@@ -113,7 +131,8 @@ action:
 | Run Automation Now | Dispatches the daily job immediately |
 | Toggle Automation | Turns the daily job on or off |
 | Share Links | Builds WhatsApp / Telegram links and copy text |
-| API Keys | Creates, lists and revokes free/pro API keys |
+| API Keys | Creates, lists and revokes free/pro/desk API keys |
+| Payments | Razorpay status, plan catalogue and recent purchases |
 | Full Status | Routes, files, python version, uptime |
 | Download Everything | Zips the whole project for backup or hand-off |
 | Permanent Deploy | Copyable GitHub + Render steps |
