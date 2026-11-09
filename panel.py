@@ -215,6 +215,9 @@ def export_bundle(pin: str = ""):
                 continue
             if p.suffix in {".log", ".gz", ".pyc"}:
                 continue
+            # never bundle secrets or runtime state into a shareable archive
+            if p.name in {".panel_pin", ".authcheck.pid", ".env"}:
+                continue
             z.write(p, str(rel))
         z.writestr("EXPORT-INFO.txt", f"AuthCheck export\ncreated: {_now()}\nfiles bundled from: {ROOT}\n")
     buf.seek(0)
