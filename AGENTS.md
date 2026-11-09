@@ -74,6 +74,24 @@ cards.
 no LLM, 300s timeout. Verifies the engine still produces the expected verdicts
 on regenerated fixtures. Keep it no-LLM: it is deterministic by design.
 
+**The automation sandbox is bare.** `core.py` imports Pillow, so the tarball
+ships a `setup.sh` (`pip install pillow`) and the automation is created with
+`setup_script_path: setup.sh`. Without it the run fails with
+`ModuleNotFoundError: No module named 'PIL'`. Any new third-party import must
+be added to `setup.sh` too.
+
+After changing the tarball, upload it and PATCH the automation:
+
+```bash
+PATH=$(curl -s -X POST "$HOST/api/automation/v1/uploads?name=authcheck-selftest" \
+  -H "Authorization: Bearer $OPENHANDS_API_KEY" -H "Content-Type: application/gzip" \
+  --data-binary @authcheck-selftest.tar.gz | jq -r .tarball_path)
+curl -X PATCH "$HOST/api/automation/v1/<id>" -H "Authorization: Bearer $OPENHANDS_API_KEY" \
+  -H 'Content-Type: application/json' -d "{\"tarball_path\": \"$PATH\", \"setup_script_path\": \"setup.sh\"}"
+```
+
+Verify with a manual dispatch and poll `/runs` until the status is `COMPLETED`.
+
 ## Do not
 
 - Do not add rate-limit or lockout bypass tooling, phishing pages, OTP grabbers
