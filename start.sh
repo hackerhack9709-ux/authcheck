@@ -71,6 +71,6 @@ echo
 say "  Control Room PIN:  $PANEL_PIN   (saved in .panel_pin)"
 echo
 say "  Public URL (if exposed):"
-echo "    \${AUTHCHECK_PUBLIC_URL:-<not set>}"
+echo "    ${AUTHCHECK_PUBLIC_URL:-<not set>}"
 echo
 say "  Stop with:  ./start.sh --stop    |    Logs: $LOG"
