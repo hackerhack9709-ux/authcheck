@@ -92,6 +92,33 @@ curl -X PATCH "$HOST/api/automation/v1/<id>" -H "Authorization: Bearer $OPENHAND
 
 Verify with a manual dispatch and poll `/runs` until the status is `COMPLETED`.
 
+## Engine layers (v0.4)
+
+`core.py` holds the whole engine as pure functions. Ten signals across four
+modalities:
+
+- image: `scan_c2pa`, `read_exif`, `ela`, `scan_signatures`, `ai_heuristics`
+- audio: `analyze_audio_bytes` (container + TTS signatures + clipping/silence)
+- video: `analyze_video_bytes` -> `probe_video` + `extract_keyframes`, then each
+  keyframe is run through the image engine and fused
+- text: `check_text` -> `detect_language`, `LEXICONS`, `lookup_references`
+
+`VERSION` lives in `core.py` and is imported by `app.py` and `panel.py`. Change
+it in one place only.
+
+### ffmpeg
+
+Video needs an ffmpeg binary. `_ffmpeg_path()` resolves in this order: the
+`FFMPEG_BIN` env var, `PATH`, then the static binary bundled by
+`imageio-ffmpeg`. Never shell out to `ffmpeg` by name - always go through
+`_ffmpeg_path()`, or video silently breaks on hosts without it.
+
+### References are not verdicts
+
+`lookup_references()` is keyless (Wikipedia + DuckDuckGo) and returns background
+only. The payload says so explicitly, and the UI repeats it. Never present a
+reference hit as evidence that a claim is true.
+
 ## Control room (`/panel`)
 
 `panel.py` is a separate router with one endpoint per button. `app.py` includes

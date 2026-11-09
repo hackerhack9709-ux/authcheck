@@ -88,6 +88,29 @@ def png_bytes(size=(1024, 1024)) -> bytes:
     return buf.getvalue()
 
 
+def mp4_bytes() -> bytes | None:
+    """A 2s synthetic clip, or None when no ffmpeg binary is available."""
+    import subprocess
+    import tempfile
+    ff = core._ffmpeg_path()
+    if not ff:
+        return None
+    from PIL import Image
+    with tempfile.TemporaryDirectory() as td:
+        frame = os.path.join(td, "f.png")
+        clip = os.path.join(td, "c.mp4")
+        Image.new("RGB", (320, 240), (30, 60, 120)).save(frame)
+        r = subprocess.run(
+            [ff, "-y", "-loop", "1", "-i", frame, "-t", "2", "-pix_fmt", "yuv420p",
+             "-r", "10", clip],
+            capture_output=True, text=True, timeout=60,
+        )
+        if r.returncode != 0 or not os.path.exists(clip):
+            return None
+        with open(clip, "rb") as fh:
+            return fh.read()
+
+
 # --------------------------------------------------------------------------- #
 # expectations
 # --------------------------------------------------------------------------- #
@@ -135,6 +158,27 @@ def run_checks() -> tuple[bool, list[dict]]:
     clean = wav_bytes(44100, 3, lambda t: 0.3 * math.sin(2 * math.pi * 220 * t))
     cv = core.analyze_audio_bytes(clean, "clean.wav")
     check("clean tone not flagged", cv["verdict"]["score"] >= 45, True)
+
+    # 7. Key terms extraction is deterministic and drops stopwords
+    terms = core.key_terms("The Moon is made of green cheese and NASA confirmed it")
+    check("key terms drop stopwords", "the" not in [t.lower() for t in terms], True)
+    check("key terms keep nouns", "moon" in [t.lower() for t in terms], True)
+
+    # 8. Video pipeline produces a well-formed report (skipped without ffmpeg)
+    clip = mp4_bytes()
+    if clip is None:
+        CHECKS.append({"name": "video report (skipped: no ffmpeg)", "got": "skip",
+                       "expect": "skip", "ok": True})
+    else:
+        vd = core.analyze_video_bytes(clip, "clip.mp4")
+        check("video report ok", vd.get("ok"), True)
+        check("video has container facts", bool((vd.get("container") or {}).get("width")), True)
+        check("video sampled frames", vd.get("keyframes_analysed", 0) >= 1, True)
+
+    # 9. Keyless reference lookup returns the documented shape
+    ref = core.lookup_references("WHO declared the COVID-19 pandemic in March 2020")
+    check("references shape", set(("provider", "query", "hit_count")) <= set(ref), True)
+    check("references note present", "not make the claim true" in (ref.get("note") or ""), True)
 
     passed = all(c["ok"] for c in CHECKS)
     return passed, CHECKS

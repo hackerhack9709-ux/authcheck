@@ -21,6 +21,7 @@ from fastapi import APIRouter, Form
 from fastapi.responses import HTMLResponse, JSONResponse, Response
 
 import selftest
+import core
 
 ROOT = Path(__file__).resolve().parent
 STARTED = time.time()
@@ -92,7 +93,7 @@ def status():
     return {
         "ok": True,
         "checked_at": _now(),
-        "app": {"version": "0.3", "uptime_seconds": round(time.time() - STARTED)},
+        "app": {"version": core.VERSION, "uptime_seconds": round(time.time() - STARTED)},
         "routes": sorted({r.path for r in webapp.app.routes if getattr(r, "path", "").startswith("/api")}),
         "python": platform.python_version(),
         "files": files,

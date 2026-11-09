@@ -212,8 +212,8 @@ footer{padding:52px 0 70px;border-top:1px solid var(--line)}
 <div class="casebar">
   <span><b>AUTHCHECK</b> / FORENSIC AUTHENTICITY DESK</span>
   <span><span class="dot">●</span> SESSION LIVE</span>
-  <span>ENGINE v0.3</span>
-  <span>LAYERS 09</span>
+  <span>ENGINE v0.4</span>
+  <span>LAYERS 10</span>
   <span>NO UPLOAD RETENTION</span>
 </div>
 
@@ -252,15 +252,15 @@ footer{padding:52px 0 70px;border-top:1px solid var(--line)}
             <span>C2PA Content Credentials</span><span>EXIF Camera Data</span>
             <span>AI Tool Signatures</span><span>Error Level Analysis</span>
             <span>Generator Dimensions</span><span>Noise Profile</span>
-            <span>Claim Fact-Check</span><span>Forward-Bait Language</span>
+            <span>Claim Fact-Check</span><span>Forward-Bait Language</span><span>Video Container Facts</span>
             <span>C2PA Content Credentials</span><span>EXIF Camera Data</span>
             <span>AI Tool Signatures</span><span>Error Level Analysis</span>
             <span>Generator Dimensions</span><span>Noise Profile</span>
-            <span>Claim Fact-Check</span><span>Forward-Bait Language</span>
+            <span>Claim Fact-Check</span><span>Forward-Bait Language</span><span>Video Container Facts</span>
           </div>
         </div>
         <div class="hero-stats">
-          <div><b>09</b><span>Analysis signals</span></div>
+          <div><b>10</b><span>Analysis signals</span></div>
           <div><b>0–100</b><span>Trust score</span></div>
           <div><b>100%</b><span>Verdicts explained</span></div>
           <div><b>0</b><span>Files kept</span></div>
@@ -275,12 +275,13 @@ footer{padding:52px 0 70px;border-top:1px solid var(--line)}
     <div class="sec-head">
       <div class="eyebrow">The Desk</div>
       <h2>Submit evidence.</h2>
-      <p>Drop an image, or paste a claim. Everything runs on the server and nothing is stored.</p>
+      <p>Drop an image, a video, an audio clip, or paste a claim. Everything runs on the server and nothing is stored.</p>
     </div>
     <div class="tabs">
       <button class="tab active" data-t="img">🖼 Image / Photo</button>
       <button class="tab" data-t="txt">📝 News / Claim</button>
       <button class="tab" data-t="aud">🔊 Audio / Voice</button>
+      <button class="tab" data-t="vid">🎬 Video / Clip</button>
     </div>
     <div id="p-img">
       <div class="panel">
@@ -313,6 +314,18 @@ footer{padding:52px 0 70px;border-top:1px solid var(--line)}
       </div>
       <div id="ares"></div>
     </div>
+    <div id="p-vid" class="hidden">
+      <div class="panel">
+        <div class="drop" id="vdrop">
+          <div class="ico">🎬</div>
+          <b>Drop a video clip, or tap to choose</b>
+          <span>MP4 · MOV · WEBM · MKV · max 100MB</span>
+          <input type="file" id="vpicker" accept="video/*" hidden/>
+        </div>
+        <div class="filerow" id="vname"></div>
+      </div>
+      <div id="vres"></div>
+    </div>
   </div>
 </section>
 
@@ -320,7 +333,7 @@ footer{padding:52px 0 70px;border-top:1px solid var(--line)}
   <div class="wrap">
     <div class="sec-head">
       <div class="eyebrow">Exhibit B · What we look at</div>
-      <h2>Nine independent <em>signals</em>.</h2>
+      <h2>Ten independent <em>signals</em>.</h2>
       <p>No single technique can answer "is this real?". Each is weak alone and useful together.</p>
     </div>
     <div class="cards">
@@ -339,16 +352,19 @@ footer{padding:52px 0 70px;border-top:1px solid var(--line)}
       <div class="card"><div class="num">SIGNAL / 05</div><h3>Claim language</h3>
         <p>Forward-bait phrasing, unnamed "experts", heavy capitals and share requests are the fingerprint of viral misinformation — whatever the topic.</p>
         <span class="weight">Text only</span></div>
-      <div class="card"><div class="num">SIGNAL / 06</div><h3>Fact-check lookup</h3>
-        <p>Matches the claim against published fact-checks. Optional — enable it with a free Google Fact Check Tools API key.</p>
-        <span class="weight">Optional · plug-in key</span></div>
+      <div class="card"><div class="num">SIGNAL / 06</div><h3>Claim references</h3>
+        <p>Keyless by default: pulls Wikipedia and DuckDuckGo background for the claim's key terms. Add a free Google Fact Check Tools key to also match published fact-checks.</p>
+        <span class="weight">Keyless · optional key</span></div>
       <div class="card"><div class="num">SIGNAL / 07</div><h3>Audio forensics</h3>
         <p>Container metadata, TTS/voice-clone tool signatures, clipping, RMS level and silent-segment stitching — all without a model.</p>
         <span class="weight">Voice · signal based</span></div>
       <div class="card"><div class="num">SIGNAL / 08</div><h3>Multilingual claims</h3>
         <p>Red-flag lexicons for English, Hindi, Urdu, Bengali, Marathi, Tamil and Spanish — auto-detected from the script used.</p>
         <span class="weight">7 languages · script detection</span></div>
-      <div class="card"><div class="num">SIGNAL / 09</div><h3>API first</h3>
+      <div class="card"><div class="num">SIGNAL / 09</div><h3>Video forensics</h3>
+        <p>Container facts, stream metadata and evenly sampled keyframes run through the full image engine, then fused into one verdict.</p>
+        <span class="weight">Clip · keyframe sampling</span></div>
+      <div class="card"><div class="num">SIGNAL / 10</div><h3>API first</h3>
         <p>Every layer is a plain JSON endpoint you can call from your own app, bot or newsroom tool. No key needed.</p>
         <span class="weight">Free · open endpoints</span></div>
     </div>
@@ -363,7 +379,7 @@ footer{padding:52px 0 70px;border-top:1px solid var(--line)}
       <p>Every signal is weighted, then fused into one score — with the arithmetic shown.</p>
     </div>
     <div class="pipe">
-      <div class="step"><div class="n">1</div><h4>Read</h4><p>Provenance manifest and EXIF are pulled from the raw bytes.</p></div>
+      <div class="step"><div class="n">1</div><h4>Read</h4><p>Provenance manifest and EXIF are pulled from the raw bytes; video containers are probed with ffmpeg.</p></div>
       <div class="step"><div class="n">2</div><h4>Inspect</h4><p>ELA and noise profiling look for edits and synthetic smoothness.</p></div>
       <div class="step"><div class="n">3</div><h4>Match</h4><p>AI-tool signatures and generator dimensions are matched against knowns.</p></div>
       <div class="step"><div class="n">4</div><h4>Weigh</h4><p>Each finding carries an explicit weight, positive or negative.</p></div>
@@ -407,6 +423,9 @@ footer{padding:52px 0 70px;border-top:1px solid var(--line)}
       <div class="case w"><div class="ctag">Case 09 · Hindi forward</div><div class="cscore">50</div>
         <div class="cband">Caution</div>
         <div class="cwhy">"चौंकाने वाली खबर — जरूर शेयर करो" — Devanagari detected, four forward-bait terms matched.</div></div>
+      <div class="case r"><div class="ctag">Case 10 · silent clip</div><div class="cscore">28</div>
+        <div class="cband">Higher risk</div>
+        <div class="cwhy">320×240 container, 10 fps, no audio track, and both sampled keyframes carry no metadata at all.</div></div>
     </div>
   </div>
 </section>
@@ -425,6 +444,8 @@ footer{padding:52px 0 70px;border-top:1px solid var(--line)}
         <p>Invisible watermarks can be removed by widely available tools, so a missing watermark means very little. Provenance is weighted higher because it is cryptographic.</p></div>
       <div class="lim"><h4>Classifiers can be fooled</h4>
         <p>Detection models degrade against new generators. That is why the score blends signals rather than trusting one model's opinion.</p></div>
+      <div class="lim"><h4>Video is weaker than stills</h4>
+        <p>Video checks read container metadata and sampled keyframes. There is no lip-sync or temporal-consistency model, so a clean video result is weaker evidence than a clean image result.</p></div>
       <div class="lim"><h4>Truth is not a pixel property</h4>
         <p>A genuine photo can illustrate a false claim, and a real quote can be framed dishonestly. The score is about the artefact — you still check the source.</p></div>
     </div>
@@ -441,7 +462,9 @@ footer{padding:52px 0 70px;border-top:1px solid var(--line)}
     <div class="code">
       $ curl -X POST <b>&lt;base&gt;/api/analyze-image</b> -F "file=@photo.jpg"<br/>
       { <i>"verdict"</i>: { <i>"score"</i>: 62, <i>"band"</i>: "unclear - check sources", <i>"reasons"</i>: [ … ] },<br/>
-      &nbsp;&nbsp;<i>"c2pa"</i>: { … }, <i>"exif"</i>: { … }, <i>"ela"</i>: { … }, <i>"heuristics"</i>: [ … ] }
+      &nbsp;&nbsp;<i>"c2pa"</i>: { … }, <i>"exif"</i>: { … }, <i>"ela"</i>: { … }, <i>"heuristics"</i>: [ … ] }<br/>
+      $ curl -X POST <b>&lt;base&gt;/api/analyze-video</b> -F "file=@clip.mp4"<br/>
+      { <i>"verdict"</i>: { <i>"score"</i>: 28, <i>"band"</i>: "higher risk" }, <i>"container"</i>: { … }, <i>"keyframes"</i>: [ … ] }
     </div>
     <div class="endpoints">
       <div class="ep"><span class="verb">POST</span><span class="path">/api/analyze-image</span>
@@ -450,6 +473,8 @@ footer{padding:52px 0 70px;border-top:1px solid var(--line)}
         <span class="desc">Form field <span class="mono">text</span> → red-flag findings, score and fact-check matches when a key is configured.</span></div>
       <div class="ep"><span class="verb">POST</span><span class="path">/api/analyze-audio</span>
         <span class="desc">Audio upload → container metadata, TTS signatures, clipping/silence analysis, fused verdict.</span></div>
+      <div class="ep"><span class="verb">POST</span><span class="path">/api/analyze-video</span>
+        <span class="desc">Video upload → container facts, sampled keyframes run through the image engine, fused verdict. Needs ffmpeg (bundled via <span class="mono">imageio-ffmpeg</span>).</span></div>
       <div class="ep"><span class="verb">GET</span><span class="path">/api/health</span>
         <span class="desc">Liveness, enabled layers, supported languages, and fact-check status.</span></div>
     </div>
@@ -491,6 +516,7 @@ document.querySelectorAll('.tab').forEach(b => b.onclick = () => {
   $('p-img').classList.toggle('hidden', curTab !== 'img');
   $('p-txt').classList.toggle('hidden', curTab !== 'txt');
   $('p-aud').classList.toggle('hidden', curTab !== 'aud');
+  $('p-vid').classList.toggle('hidden', curTab !== 'vid');
 });
 const drop = $('drop'), picker = $('picker');
 drop.onclick = () => picker.click();
@@ -627,6 +653,59 @@ function renderAudio(d){
   animateDial($('ares'));
 }
 
+
+const vdrop = $('vdrop'), vpicker = $('vpicker');
+vdrop.onclick = () => vpicker.click();
+vpicker.onchange = () => { if (vpicker.files[0]) runVideo(vpicker.files[0]); };
+['dragenter','dragover'].forEach(e => vdrop.addEventListener(e, ev => { ev.preventDefault(); vdrop.classList.add('hot'); }));
+['dragleave','drop'].forEach(e => vdrop.addEventListener(e, ev => { ev.preventDefault(); vdrop.classList.remove('hot'); }));
+vdrop.addEventListener('drop', ev => { if (ev.dataTransfer.files[0]) runVideo(ev.dataTransfer.files[0]); });
+
+async function runVideo(file){
+  $('vname').textContent = '▸ ' + file.name + '  ·  ' + Math.round(file.size/1024) + ' KB';
+  $('vres').innerHTML = '<div class="dossier"><div class="disclaim">Decoding container and sampling keyframes…</div></div>';
+  const fd = new FormData(); fd.append('file', file);
+  try{
+    const r = await fetch('/api/analyze-video', {method:'POST', body:fd});
+    const d = await r.json();
+    if(!d.ok){ $('vres').innerHTML = '<div class="dossier"><div class="disclaim">'+esc(d.error||'failed')+(d.hint?' — '+esc(d.hint):'')+'</div></div>'; return; }
+    renderVideo(d);
+  }catch(e){ $('vres').innerHTML = '<div class="dossier"><div class="disclaim">Error: '+esc(e.message)+'</div></div>'; }
+}
+
+function renderVideo(d){
+  const v = d.verdict, color = bandColor(v.band), c = d.container || {};
+  let h = '<div class="dossier">';
+  h += `<div class="dossier-head">${dial(v.score,color)}
+    <div><div class="eyebrow">Video verdict</div>
+      <div class="verdict-name">${esc(v.band)}</div>
+      <div class="verdict-sub">${esc(d.filename||'video')} · ${esc(c.codec||'?')} · ${c.width||'?'}x${c.height||'?'} · ${c.duration_seconds||'?'}s</div></div>
+    <div class="stamp ${bandStamp(v.band)}">${v.score>=70?'low risk':v.score>=45?'unclear':'high risk'}</div></div>`;
+  h += `<div class="disclaim">${esc(v.disclaimer)}</div>`;
+  h += '<div class="exhibits">';
+  h += `<div class="ex"><h4>Exhibit 01 · Container</h4>
+    <div class="kv"><b>Codec</b><span>${esc(c.codec||'—')}</span></div>
+    <div class="kv"><b>Resolution</b><span>${c.width?(c.width+'x'+c.height):'—'}</span></div>
+    <div class="kv"><b>Frame rate</b><span>${c.fps?c.fps+' fps':'—'}</span></div>
+    <div class="kv"><b>Duration</b><span>${c.duration_seconds!==undefined?c.duration_seconds+' s':'—'}</span></div>
+    <div class="kv"><b>Audio track</b><span>${c.has_audio_track?'yes ('+esc(c.audio_codec||'?')+')':'none'}</span></div></div>`;
+  h += `<div class="ex"><h4>Exhibit 02 · Keyframes</h4>
+    <div class="kv"><b>Analysed</b><span>${d.keyframes_analysed}</span></div>`;
+  (d.keyframes||[]).forEach(f=>{
+    h += `<div class="kv"><b>Frame ${f.index}</b><span>${f.score} · ${esc(f.band)}</span></div>`;
+  });
+  h += '</div></div>';
+  h += '<div class="findings"><h4>Findings</h4>';
+  if(!(d.heuristics||[]).length){ h += '<div class="finding"><span class="txt">No container or keyframe anomalies found.</span></div>'; }
+  (d.heuristics||[]).forEach(x=>{
+    h += `<div class="finding"><span class="sev ${x.level}">${x.level}</span>
+      <span class="txt">${esc(x.text)}<span class="wt">weight ${x.weight>0?'+':''}${x.weight}</span></span></div>`;
+  });
+  h += '</div></div>';
+  $('vres').innerHTML = h;
+  animateDial($('vres'));
+}
+
 $('gotext').onclick = async () => {
   const t = $('txt').value.trim();
   if(!t) return;
@@ -661,8 +740,26 @@ $('gotext').onclick = async () => {
     });
     h += '</div>';
   } else if(!d.factcheck_available){
-    h += `<div class="disclaim">Fact-check lookup is off — no API key configured. Search manually at
-      <a href="https://toolbox.google.com/factcheck/explorer" target="_blank" rel="noopener">Google Fact Check Explorer</a>.</div>`;
+    h += `<div class="disclaim">Published fact-check lookup is off (no API key). Free keyless background
+      references are shown below instead.</div>`;
+  }
+  const refs = d.references;
+  if(refs){
+    h += `<div class="findings"><h4>Background references · ${refs.hit_count} found</h4>`;
+    h += `<div class="finding"><span class="txt">Searched: <span class="mono">${esc(refs.query)}</span><span class="wt">${esc(refs.note||'')}</span></span></div>`;
+    if(!refs.hit_count){
+      h += '<div class="finding"><span class="sev info">none</span><span class="txt">No matching reference found. Absence of a reference is not proof the claim is false.</span></div>';
+    }
+    (refs.wikipedia||[]).forEach(w=>{
+      h += `<div class="finding"><span class="sev info">wiki</span><span class="txt"><a href="${w.url}" target="_blank" rel="noopener"><b>${esc(w.title)}</b></a><br/><span class="wt">${esc(w.snippet||'')}</span></span></div>`;
+    });
+    (refs.instant_answers||[]).forEach(a=>{
+      h += `<div class="finding"><span class="sev info">web</span><span class="txt">${a.url?`<a href="${a.url}" target="_blank" rel="noopener"><b>${esc(a.heading||'')}</b></a>`:`<b>${esc(a.heading||'')}</b>`}<br/>${esc(a.text||'')}<span class="wt">${esc(a.source||'')}</span></span></div>`;
+    });
+    if(refs.errors && refs.errors.length){
+      h += `<div class="finding"><span class="sev low">partial</span><span class="txt">Some lookups failed: ${esc(refs.errors.join('; '))}</span></div>`;
+    }
+    h += '</div>';
   }
   h += '</div>';
   $('tres').innerHTML = h;

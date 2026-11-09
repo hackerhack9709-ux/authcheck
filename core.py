@@ -26,8 +26,10 @@ try:
 except Exception:  # pragma: no cover
     piexif = None
 
+VERSION = "0.4"
 FACTCHECK_KEY = os.environ.get("FACTCHECK_API_KEY", "").strip()
 MAX_UPLOAD = 25 * 1024 * 1024
+MAX_VIDEO_UPLOAD = 100 * 1024 * 1024
 
 
 
@@ -313,7 +315,7 @@ def detect_language(text: str) -> str:
     return max(counts, key=counts.get)
 
 
-def check_text(text: str, lang: str | None = None) -> dict:
+def check_text(text: str, lang: str | None = None, include_references: bool = True) -> dict:
     text = (text or "").strip()
     if not text:
         return {"ok": False, "error": "empty text"}
@@ -366,6 +368,8 @@ def check_text(text: str, lang: str | None = None) -> dict:
     if FACTCHECK_KEY:
         factcheck = query_factcheck(text)
 
+    references = lookup_references(text) if include_references else None
+
     return {
         "ok": True,
         "score": score,
@@ -375,6 +379,7 @@ def check_text(text: str, lang: str | None = None) -> dict:
         "flags": flags,
         "factcheck": factcheck,
         "factcheck_available": bool(FACTCHECK_KEY),
+        "references": references,
         "word_count": len(words),
     }
 
@@ -407,6 +412,130 @@ def query_factcheck(text: str) -> dict:
         }
     except Exception as e:
         return {"error": str(e)}
+
+
+# --------------------------------------------------------------------------- #
+# 4b. Keyless reference lookup (no API key needed)
+# --------------------------------------------------------------------------- #
+STOPWORDS = {
+    "the", "a", "an", "is", "are", "was", "were", "be", "been", "being", "of", "to",
+    "in", "on", "at", "by", "for", "with", "about", "as", "into", "like", "through",
+    "after", "over", "between", "out", "against", "during", "without", "before",
+    "under", "around", "among", "and", "but", "or", "if", "then", "than", "that",
+    "this", "these", "those", "it", "its", "he", "she", "they", "them", "his", "her",
+    "their", "we", "you", "i", "me", "my", "our", "your", "who", "what", "which",
+    "when", "where", "why", "how", "all", "any", "both", "each", "few", "more",
+    "most", "other", "some", "such", "no", "nor", "not", "only", "own", "same",
+    "so", "too", "very", "can", "will", "just", "should", "now", "says", "said",
+}
+
+
+def key_terms(text: str, limit: int = 6) -> list[str]:
+    """Pull the most informative words out of a claim for a reference search."""
+    words = re.findall(r"[^\W\d_]{3,}", text, flags=re.UNICODE)
+    seen, out = set(), []
+    for w in words:
+        lw = w.lower()
+        if lw in STOPWORDS or lw in seen:
+            continue
+        seen.add(lw)
+        out.append(w)
+    return out[:limit]
+
+
+def _http_json(url: str, timeout: float = 8.0) -> Any:
+    req = urllib.request.Request(url, headers={"User-Agent": "AuthCheck/0.4 (authenticity desk)"})
+    with urllib.request.urlopen(req, timeout=timeout) as r:
+        return json.load(r)
+
+
+def lookup_references(text: str) -> dict:
+    """Keyless cross-check: Wikipedia pages + DuckDuckGo instant answers.
+
+    This is context, not a verdict. A hit means 'here is background on this',
+    never 'this claim is true' - that distinction is stated in the payload.
+    """
+    terms = key_terms(text)
+    query = " ".join(terms) or text[:120]
+    out: dict[str, Any] = {
+        "provider": "wikipedia+duckduckgo",
+        "query": query,
+        "terms": terms,
+        "note": "Background references only. A hit does not make the claim true.",
+        "wikipedia": [],
+        "instant_answers": [],
+        "errors": [],
+    }
+
+    if not query.strip():
+        return out
+
+    term_set = {t.lower() for t in terms}
+
+    def relevance(*chunks: str) -> int:
+        """How many search terms appear; title matches weigh more than body."""
+        score = 0
+        for i, chunk in enumerate(chunks):
+            low = (chunk or "").lower()
+            weight = 3 if i == 0 else 1
+            score += weight * sum(1 for t in term_set if t in low)
+        return score
+
+    try:
+        wp = _http_json(
+            "https://en.wikipedia.org/w/api.php?action=query&list=search"
+            f"&srsearch={urllib.parse.quote(query)}&format=json&srlimit=8"
+        )
+        ranked = []
+        for hit in (wp.get("query", {}).get("search") or []):
+            title = hit.get("title", "")
+            snippet = re.sub(r"<[^>]+>", "", hit.get("snippet", ""))
+            score = relevance(title, snippet)
+            if score == 0:
+                continue
+            ranked.append((score, {
+                "title": title,
+                "snippet": snippet,
+                "url": "https://en.wikipedia.org/wiki/" + urllib.parse.quote(title.replace(" ", "_")),
+                "relevance": score,
+            }))
+        ranked.sort(key=lambda x: -x[0])
+        out["wikipedia"] = [r[1] for r in ranked[:4]]
+    except Exception as e:
+        out["errors"].append(f"wikipedia: {type(e).__name__}: {e}")
+
+    try:
+        ddg = _http_json(
+            "https://api.duckduckgo.com/?q=" + urllib.parse.quote(query)
+            + "&format=json&no_html=1&skip_disambig=1"
+        )
+        candidates = []
+        if ddg.get("AbstractText"):
+            candidates.append({
+                "heading": ddg.get("Heading", ""),
+                "text": ddg.get("AbstractText", "")[:400],
+                "url": ddg.get("AbstractURL", ""),
+                "source": ddg.get("AbstractSource", ""),
+            })
+        for topic in (ddg.get("RelatedTopics") or []):
+            if topic.get("Text"):
+                candidates.append({
+                    "heading": topic.get("Text", "").split(" - ")[0][:80],
+                    "text": topic.get("Text", "")[:300],
+                    "url": (topic.get("FirstURL") or ""),
+                    "source": "DuckDuckGo",
+                })
+        scored = [(relevance(c["heading"], c["text"]), c) for c in candidates]
+        scored = [(s, c) for s, c in scored if s > 0]
+        scored.sort(key=lambda x: -x[0])
+        out["instant_answers"] = [c for _, c in scored[:3]]
+    except Exception as e:
+        out["errors"].append(f"duckduckgo: {type(e).__name__}: {e}")
+
+    out["hit_count"] = len(out["wikipedia"]) + len(out["instant_answers"])
+    if not out["errors"]:
+        out.pop("errors")
+    return out
 
 
 # --------------------------------------------------------------------------- #
@@ -518,6 +647,203 @@ def analyze_audio_bytes(data: bytes, filename: str) -> dict:
             "reasons": [s["text"] for s in signals],
             "disclaimer": "Audio heuristics are weaker than image provenance. A clean result "
                           "is not proof of authenticity, and a flagged one is not proof of faking.",
+        },
+        "generated_at": datetime.now(timezone.utc).isoformat(),
+    }
+
+
+# --------------------------------------------------------------------------- #
+# 5c. Video analysis (keyframe sampling, no ML)
+# --------------------------------------------------------------------------- #
+VIDEO_AI_SIGNATURES = AUDIO_AI_SIGNATURES + [
+    "runway", "pika", "luma", "sora", "kling", "hailuo", "veo", "gen-2", "gen-3",
+    "stable video", "svd", "animatediff", "deforum", "kaiber", "pictory", "synthesia",
+    "heygen", "d-id", "deepfake", "face swap", "faceswap", "roop", "simswap",
+]
+
+
+def _ffmpeg_path() -> str | None:
+    """Locate an ffmpeg binary: env override, PATH, or the pip-bundled static build."""
+    override = os.environ.get("FFMPEG_BIN", "").strip()
+    if override and Path(override).exists():
+        return override
+    import shutil
+    found = shutil.which("ffmpeg")
+    if found:
+        return found
+    try:
+        import imageio_ffmpeg  # type: ignore
+        return imageio_ffmpeg.get_ffmpeg_exe()
+    except Exception:
+        return None
+
+
+def probe_video(data: bytes) -> dict:
+    """Read container/stream facts without decoding frames."""
+    ff = _ffmpeg_path()
+    if not ff:
+        return {"available": False, "error": "ffmpeg not found"}
+    import subprocess
+    import tempfile
+    with tempfile.NamedTemporaryFile(suffix=".bin", delete=False) as tf:
+        tf.write(data)
+        path = tf.name
+    try:
+        r = subprocess.run([ff, "-i", path], capture_output=True, text=True, timeout=30)
+        err = r.stderr
+        out: dict[str, Any] = {"available": True, "raw_ok": r.returncode == 0}
+        m = re.search(r"Duration:\s*(\d+):(\d+):(\d+)\.(\d+)", err)
+        if m:
+            h, mi, s, cs = (int(x) for x in m.groups())
+            out["duration_seconds"] = round(h * 3600 + mi * 60 + s + cs / 100, 2)
+        vm = re.search(r"Video:\s*([a-z0-9]+).*?(\d{2,5})x(\d{2,5})", err)
+        if vm:
+            out["codec"], out["width"], out["height"] = vm.group(1), int(vm.group(2)), int(vm.group(3))
+        am = re.search(r"Audio:\s*([a-z0-9]+)", err)
+        if am:
+            out["audio_codec"] = am.group(1)
+        fr = re.search(r"(\d+(?:\.\d+)?)\s*fps", err)
+        if fr:
+            out["fps"] = float(fr.group(1))
+        bm = re.search(r"bitrate:\s*(\d+)\s*kb/s", err)
+        if bm:
+            out["bitrate_kbps"] = int(bm.group(1))
+        out["has_audio_track"] = bool(am)
+        out["tool_signature_hits"] = [s for s in VIDEO_AI_SIGNATURES if s in err.lower()]
+        return out
+    except Exception as e:
+        return {"available": True, "error": f"{type(e).__name__}: {e}"}
+    finally:
+        try:
+            os.unlink(path)
+        except Exception:
+            pass
+
+
+def extract_keyframes(data: bytes, max_frames: int = 6) -> list[bytes]:
+    """Sample evenly spaced frames as PNG bytes, scaled down for speed."""
+    ff = _ffmpeg_path()
+    if not ff:
+        return []
+    import subprocess
+    import tempfile
+    with tempfile.NamedTemporaryFile(suffix=".bin", delete=False) as tf:
+        tf.write(data)
+        path = tf.name
+    tmpdir = tempfile.mkdtemp(prefix="acframes")
+    try:
+        # fps filter at a low rate gives evenly spaced frames without a full decode pass
+        r = subprocess.run(
+            [ff, "-i", path, "-vf", "fps=1/2,scale=640:-1", "-frames:v", str(max_frames),
+             "-f", "image2", f"{tmpdir}/f%02d.png"],
+            capture_output=True, text=True, timeout=60,
+        )
+        frames = []
+        for p in sorted(Path(tmpdir).glob("f*.png")):
+            frames.append(p.read_bytes())
+        if not frames:
+            # very short clip: grab a single first frame
+            single = f"{tmpdir}/single.png"
+            subprocess.run([ff, "-i", path, "-frames:v", "1", "-vf", "scale=640:-1", single],
+                           capture_output=True, text=True, timeout=30)
+            if Path(single).exists():
+                frames.append(Path(single).read_bytes())
+        return frames
+    except Exception:
+        return []
+    finally:
+        import shutil
+        try:
+            os.unlink(path)
+        except Exception:
+            pass
+        shutil.rmtree(tmpdir, ignore_errors=True)
+
+
+def analyze_video_bytes(data: bytes, filename: str) -> dict:
+    """Container facts + per-keyframe image analysis, blended into one verdict."""
+    info = probe_video(data)
+    if not info.get("available"):
+        return {"ok": False, "error": info.get("error", "ffmpeg unavailable"),
+                "hint": "Install ffmpeg, or pip install imageio-ffmpeg"}
+
+    frames = extract_keyframes(data)
+    frame_reports = []
+    for i, fb in enumerate(frames):
+        exif = read_exif(fb)
+        sigs = scan_signatures(exif, fb)
+        heur = ai_heuristics(fb, exif, sigs)
+        v = fuse(scan_c2pa(fb), exif, sigs, ela(fb), heur)
+        frame_reports.append({"index": i, "score": v["score"], "band": v["band"],
+                              "reasons": v["reasons"][:4]})
+
+    signals: list[dict] = []
+    score = 50
+
+    if info.get("tool_signature_hits"):
+        hits = info["tool_signature_hits"]
+        signals.append({"level": "high", "weight": 26,
+                        "text": f"Container metadata names generative/editing tools: {', '.join(hits[:5])}"})
+        score -= 26
+
+    fps = info.get("fps")
+    if fps and (fps < 8 or fps > 120):
+        signals.append({"level": "medium", "weight": 10,
+                        "text": f"Unusual frame rate ({fps} fps)"})
+        score -= 10
+
+    w, h = info.get("width"), info.get("height")
+    if w and h:
+        ratio = w / h
+        common = [(16, 9), (9, 16), (4, 3), (3, 4), (1, 1), (21, 9), (9, 21)]
+        if not any(abs(ratio - a / b) < 0.02 for a, b in common):
+            signals.append({"level": "low", "weight": 6,
+                            "text": f"Non-standard aspect ratio ({w}x{h})"})
+            score -= 6
+
+    if not info.get("has_audio_track"):
+        signals.append({"level": "low", "weight": 5,
+                        "text": "No audio track (common in generated clips, but also in silent footage)"})
+        score -= 5
+
+    if info.get("duration_seconds") is not None and info["duration_seconds"] < 2:
+        signals.append({"level": "medium", "weight": 8,
+                        "text": f"Very short clip ({info['duration_seconds']}s) - hard to verify"})
+        score -= 8
+
+    if frame_reports:
+        avg = sum(f["score"] for f in frame_reports) / len(frame_reports)
+        # keyframes carry half the weight; container facts carry the rest
+        score = round(0.5 * score + 0.5 * avg)
+        worst = min(frame_reports, key=lambda f: f["score"])
+        if worst["score"] < 45:
+            signals.append({"level": "high", "weight": 12,
+                            "text": f"Keyframe {worst['index']} scores low ({worst['score']}): "
+                                    f"{'; '.join(worst['reasons'][:2])}"})
+            score -= 12
+    else:
+        signals.append({"level": "medium", "weight": 10,
+                        "text": "Could not decode frames - verdict relies on container facts only"})
+        score -= 10
+
+    score = max(0, min(100, score))
+    band = "lower risk" if score >= 70 else "unclear" if score >= 45 else "higher risk"
+
+    return {
+        "ok": True,
+        "filename": filename,
+        "size_bytes": len(data),
+        "container": info,
+        "keyframes_analysed": len(frame_reports),
+        "keyframes": frame_reports,
+        "heuristics": signals,
+        "verdict": {
+            "score": score,
+            "band": band,
+            "reasons": [s["text"] for s in signals] or ["No container or keyframe anomalies found"],
+            "disclaimer": "Video checks read container metadata and sampled frames. They do not "
+                          "run a lip-sync or temporal-consistency model, so a clean result is "
+                          "weaker evidence than for images.",
         },
         "generated_at": datetime.now(timezone.utc).isoformat(),
     }

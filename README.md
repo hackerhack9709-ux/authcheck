@@ -87,6 +87,34 @@ Set `PANEL_PIN` to lock the action buttons. `start.sh` generates a 6-digit PIN
 into `.panel_pin` on first run and reuses it afterwards. With `PANEL_PIN` unset
 the panel is open — only do that on a private machine.
 
+## What it checks
+
+| Layer | Input | Notes |
+|-------|-------|-------|
+| Provenance (C2PA) | image, video frame | Cryptographic, strongest signal |
+| EXIF metadata | image, video frame | Camera, GPS, editing software |
+| Error Level Analysis | image, video frame | Localised edits show up |
+| Generation heuristics | image, video frame | Canvas size, noise profile |
+| AI tool signatures | image, audio, video | Generator names in metadata |
+| Claim language | text | Forward-bait, absolutism, caps |
+| Multilingual lexicons | text | en, hi, ur, bn, mr, ta, es |
+| Audio forensics | audio | TTS signatures, clipping, stitching |
+| Video container | video | Codec, fps, aspect, audio track |
+| References | text | Keyless Wikipedia + DuckDuckGo; optional Google Fact Check key |
+
+## API
+
+```
+POST <base>/api/analyze-image   -F "file=@photo.jpg"
+POST <base>/api/analyze-video   -F "file=@clip.mp4"
+POST <base>/api/analyze-audio   -F "file=@voice.wav"
+POST <base>/api/check-text      --data-urlencode "text=<claim>"
+GET  <base>/api/health
+```
+
+Video needs an ffmpeg binary. `pip install imageio-ffmpeg` bundles a static one,
+so no system package is required.
+
 ## Honest limits
 
 - No tool proves truth. The score is about the *artefact*, not the claim.

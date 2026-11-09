@@ -11,8 +11,11 @@ from PIL import Image
 
 from core import (
     FACTCHECK_KEY,
+    analyze_video_bytes,
     LEXICONS,
     MAX_UPLOAD,
+    MAX_VIDEO_UPLOAD,
+    VERSION,
     ai_heuristics,
     analyze_audio_bytes,
     check_text,
@@ -91,14 +94,22 @@ async def analyze_audio(file: UploadFile = File(...)):
     return analyze_audio_bytes(data, file.filename or "audio")
 
 
+@app.post("/api/analyze-video")
+async def analyze_video(file: UploadFile = File(...)):
+    data = await file.read()
+    if len(data) > MAX_VIDEO_UPLOAD:
+        return JSONResponse({"ok": False, "error": "file too large (max 100MB)"}, 413)
+    return analyze_video_bytes(data, file.filename or "video")
+
+
 @app.get("/api/health")
 def health():
     return {
         "ok": True,
         "factcheck_key": bool(FACTCHECK_KEY),
-        "layers": ["c2pa", "exif", "ela", "noise", "heuristics", "text", "audio"],
+        "layers": ["c2pa", "exif", "ela", "noise", "heuristics", "text", "audio", "video"],
         "languages": sorted(LEXICONS.keys()),
-        "version": "0.3",
+        "version": VERSION,
     }
 
 
