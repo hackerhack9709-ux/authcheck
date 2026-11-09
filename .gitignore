@@ -5,3 +5,5 @@ venv/
 server.log
 .DS_Store
 .env
+authcheck-selftest.tar.gz
+*.tar.gz
