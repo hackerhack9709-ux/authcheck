@@ -1,0 +1,15 @@
+services:
+  - type: web
+    name: authcheck
+    runtime: python
+    plan: free
+    buildCommand: pip install -r requirements.txt
+    startCommand: python -m uvicorn app:app --host 0.0.0.0 --port $PORT
+    healthCheckPath: /api/health
+    envVars:
+      - key: PYTHON_VERSION
+        value: "3.12.6"
+      # Optional: free key from https://developers.google.com/fact-check/tools/api
+      # Uncomment and set to enable the fact-check database lookup.
+      # - key: FACTCHECK_API_KEY
+      #   sync: false
