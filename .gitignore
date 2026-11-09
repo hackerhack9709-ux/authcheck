@@ -7,3 +7,5 @@ server.log
 .env
 authcheck-selftest.tar.gz
 *.tar.gz
+.authcheck.pid
+.panel_pin

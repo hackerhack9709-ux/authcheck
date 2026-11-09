@@ -1,0 +1,398 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<title>AuthCheck — Control Room</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,800&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet"/>
+<style>
+:root{
+  --ink:#0a0b0d; --ink-2:#101215; --ink-3:#171a1f; --ink-4:#1e2229;
+  --line:#272c34; --line-2:#343a44;
+  --amber:#ffc63d; --amber-dim:#8a6a1c;
+  --good:#3ecf8e; --bad:#e5484d; --text:#e7e5e0; --muted:#8b8f98; --muted-2:#5f646d;
+  --f-d:"Bricolage Grotesque",Impact,sans-serif;
+  --f-m:"IBM Plex Mono",ui-monospace,Menlo,monospace;
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--ink);color:var(--text);font-family:var(--f-m);font-size:14px;line-height:1.6}
+.grain{position:fixed;inset:0;pointer-events:none;z-index:9999;opacity:.04;
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='200' height='200'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.8' numOctaves='4'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E")}
+.top{display:flex;align-items:center;justify-content:space-between;gap:16px;
+  padding:14px 22px;border-bottom:1px solid var(--line);background:var(--ink-2);
+  position:sticky;top:0;z-index:50;flex-wrap:wrap}
+.brand{font-family:var(--f-d);font-weight:800;font-size:1.15rem;letter-spacing:-.01em}
+.brand i{font-style:normal;color:var(--amber)}
+.brand span{font-family:var(--f-m);font-weight:400;font-size:.62rem;letter-spacing:.2em;
+  text-transform:uppercase;color:var(--muted-2);display:block;margin-top:2px}
+.pill{font-size:.6rem;letter-spacing:.16em;text-transform:uppercase;padding:4px 10px;border:1px solid var(--line-2)}
+.pill.on{color:var(--good);border-color:#1d4433}
+.pill.off{color:var(--bad);border-color:#4a1f21}
+.wrap{max-width:1180px;margin:0 auto;padding:26px 20px 90px}
+h2{font-family:var(--f-d);font-weight:800;font-size:1.5rem;letter-spacing:-.02em;margin:0 0 6px}
+.sub{color:var(--muted);font-size:.8rem;margin-bottom:22px}
+.grid{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:28px}
+.tile{background:var(--ink-2);border:1px solid var(--line);padding:18px 16px;position:relative}
+.tile .k{font-size:.6rem;letter-spacing:.18em;text-transform:uppercase;color:var(--muted-2)}
+.tile .v{font-family:var(--f-d);font-weight:800;font-size:1.5rem;letter-spacing:-.02em;margin-top:8px}
+.tile .v.good{color:var(--good)} .tile .v.bad{color:var(--bad)} .tile .v.amber{color:var(--amber)}
+
+.actions{display:grid;grid-template-columns:repeat(3,1fr);gap:16px;margin-bottom:30px}
+.btn{background:var(--ink-2);border:1px solid var(--line-2);padding:22px 20px;cursor:pointer;
+  text-align:left;color:var(--text);font-family:inherit;transition:.16s;position:relative;overflow:hidden}
+.btn:hover{border-color:var(--amber);background:var(--ink-3);transform:translateY(-2px)}
+.btn:active{transform:translateY(0)}
+.btn:disabled{opacity:.45;cursor:wait;transform:none}
+.btn .ic{font-size:1.7rem;display:block;margin-bottom:10px}
+.btn .t{font-family:var(--f-d);font-weight:800;font-size:1.02rem;letter-spacing:-.015em;display:block}
+.btn .d{color:var(--muted);font-size:.72rem;margin-top:6px;display:block;line-height:1.5}
+.btn .tag{position:absolute;top:14px;right:14px;font-size:.55rem;letter-spacing:.14em;
+  text-transform:uppercase;color:var(--muted-2);border:1px solid var(--line);padding:2px 7px}
+.btn.primary{background:var(--amber);border-color:var(--amber);color:#14100a}
+.btn.primary .d,.btn.primary .tag{color:#5a4207;border-color:#c69a24}
+.btn.primary:hover{filter:brightness(1.07)}
+
+.out{background:var(--ink-2);border:1px solid var(--line);padding:0;margin-bottom:20px}
+.out .head{display:flex;justify-content:space-between;align-items:center;gap:12px;
+  padding:12px 16px;border-bottom:1px solid var(--line);background:var(--ink-3)}
+.out .head b{font-family:var(--f-d);font-weight:800;font-size:.92rem;letter-spacing:-.01em}
+.out .head .meta{font-size:.6rem;letter-spacing:.14em;text-transform:uppercase;color:var(--muted-2)}
+.out .body{padding:16px;font-size:.76rem;line-height:1.75;white-space:pre-wrap;word-break:break-word;max-height:420px;overflow:auto}
+.out .body.ok{color:var(--good)} .out .body.err{color:var(--bad)} .out .body.dim{color:var(--muted)}
+pre{margin:0;font-family:var(--f-m);font-size:.72rem;line-height:1.7;white-space:pre-wrap;word-break:break-word}
+.row{display:flex;gap:10px;flex-wrap:wrap;padding:12px 16px;border-top:1px solid var(--line)}
+.small{font-family:var(--f-m);font-size:.64rem;letter-spacing:.12em;text-transform:uppercase;
+  padding:8px 13px;border:1px solid var(--line-2);background:var(--ink-3);color:var(--text);
+  cursor:pointer;text-decoration:none;transition:.16s}
+.small:hover{border-color:var(--amber);color:var(--amber)}
+.check{display:flex;gap:10px;padding:6px 0;border-bottom:1px solid var(--ink-4);align-items:baseline}
+.check:last-child{border-bottom:0}
+.check .n{flex:1}
+.check .s{font-size:.62rem;letter-spacing:.1em;text-transform:uppercase;padding:2px 8px;border:1px solid}
+.check .s.pass{color:var(--good);border-color:#1d4433}
+.check .s.fail{color:var(--bad);border-color:#4a1f21}
+.spin{display:inline-block;width:11px;height:11px;border:2px solid var(--amber);
+  border-top-color:transparent;border-radius:50%;animation:sp .7s linear infinite;vertical-align:-1px}
+@keyframes sp{to{transform:rotate(360deg)}}
+.hidden{display:none}
+@media(max-width:900px){.grid{grid-template-columns:1fr 1fr}.actions{grid-template-columns:1fr 1fr}}
+@media(max-width:600px){.grid,.actions{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<div class="grain"></div>
+
+<div class="top">
+  <div class="brand">Auth<i>Check</i><span>One-Click Control Room</span></div>
+  <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
+    <span class="pill" id="apiPill">API —</span>
+    <a class="small" href="/" target="_blank">Open app ↗</a>
+  </div>
+</div>
+
+<div class="wrap">
+  <h2>Sab kuch, ek click me.</h2>
+  <div class="sub">Har button asli kaam karta hai. Koi button dikhawe ka nahi hai.</div>
+
+  <div class="grid" id="tiles">
+    <div class="tile"><div class="k">Engine</div><div class="v amber" id="tVersion">—</div></div>
+    <div class="tile"><div class="k">Self-test</div><div class="v" id="tTest">—</div></div>
+    <div class="tile"><div class="k">Live site</div><div class="v" id="tLive">—</div></div>
+    <div class="tile"><div class="k">Automation</div><div class="v" id="tAuto">—</div></div>
+  </div>
+
+  <div class="actions">
+    <button class="btn primary" id="bTest">
+      <span class="tag">1 click</span><span class="ic">🧪</span>
+      <span class="t">Run Self-Test</span>
+      <span class="d">9 checks — image, audio, Hindi/Urdu, scoring. Sab pass hone chahiye.</span>
+    </button>
+    <button class="btn primary" id="bLive">
+      <span class="tag">1 click</span><span class="ic">📡</span>
+      <span class="t">Check Live Site</span>
+      <span class="d">Public URL aur health endpoint dono probe karta hai.</span>
+    </button>
+    <button class="btn primary" id="bAuto">
+      <span class="tag">1 click</span><span class="ic">⚙️</span>
+      <span class="t">Automation Status</span>
+      <span class="d">Daily self-test ka state aur last 5 runs.</span>
+    </button>
+    <button class="btn" id="bDispatch">
+      <span class="tag">1 click</span><span class="ic">▶️</span>
+      <span class="t">Run Automation Now</span>
+      <span class="d">Daily job ko turant chala do, wait na karo.</span>
+    </button>
+    <button class="btn" id="bToggle">
+      <span class="tag">1 click</span><span class="ic">🔌</span>
+      <span class="t">Toggle Automation</span>
+      <span class="d">On/off karo. Off = koi run nahi hoga.</span>
+    </button>
+    <button class="btn" id="bShare">
+      <span class="tag">1 click</span><span class="ic">📲</span>
+      <span class="t">Share Links</span>
+      <span class="d">WhatsApp / Telegram links + copy text bana deta hai.</span>
+    </button>
+    <button class="btn" id="bStatus">
+      <span class="tag">1 click</span><span class="ic">📊</span>
+      <span class="t">Full Status</span>
+      <span class="d">Routes, files, python version, uptime — sab.</span>
+    </button>
+    <button class="btn" id="bExport">
+      <span class="tag">1 click</span><span class="ic">📦</span>
+      <span class="t">Download Everything</span>
+      <span class="d">Poora project ek zip me — backup ya kisi ko bhejne ke liye.</span>
+    </button>
+    <button class="btn" id="bDeploy">
+      <span class="tag">guide</span><span class="ic">🚀</span>
+      <span class="t">Permanent Deploy</span>
+      <span class="d">Exact steps jo tumhe sirf 1 baar karne hain (GitHub + Render).</span>
+    </button>
+  </div>
+
+  <div id="results"></div>
+</div>
+
+<script>
+const $ = (id) => document.getElementById(id);
+const results = $('results');
+
+function esc(s){return String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
+
+function card(title, meta, html, cls){
+  const el = document.createElement('div');
+  el.className = 'out';
+  el.innerHTML = `<div class="head"><b>${esc(title)}</b><span class="meta">${esc(meta)}</span></div>
+    <div class="body ${cls||''}">${html}</div>`;
+  results.prepend(el);
+  return el;
+}
+
+async function post(url, form){
+  const opts = form ? {method:'POST', body:form} : {method:'POST'};
+  const r = await fetch(url, opts);
+  const d = await r.json().catch(() => ({ok:false, error:'bad response'}));
+  d.__status = r.status;
+  return d;
+}
+async function get(url){ return (await fetch(url)).json(); }
+
+function busy(btn, on){
+  btn.disabled = on;
+  if (on) { btn.dataset.html = btn.innerHTML;
+    btn.innerHTML = '<span class="ic"><span class="spin"></span></span><span class="t">Working…</span>'; }
+  else if (btn.dataset.html) btn.innerHTML = btn.dataset.html;
+}
+
+function stamp(){ return new Date().toLocaleTimeString(); }
+
+// ---------- PIN (only used when the server sets PANEL_PIN) ----------
+function pin(){ return localStorage.getItem('authcheck_pin') || ''; }
+function askPin(){
+  const p = prompt('This control room is PIN protected.\nEnter the PIN:');
+  if (p !== null) { localStorage.setItem('authcheck_pin', p); }
+  return p;
+}
+function withPin(fd){ const f = fd || new FormData(); f.append('pin', pin()); return f; }
+async function guard(res){
+  if (res.status === 401){
+    askPin();
+    card('Locked', stamp(), 'Wrong PIN. Try again — the buttons will retry with the new PIN.', 'err');
+    return false;
+  }
+  return true;
+}
+
+// ---------- self test ----------
+$('bTest').onclick = async () => {
+  const b = $('bTest'); busy(b, true);
+  try {
+    const d = await post('/panel/api/selftest');
+    if (!d.ok) { card('Self-Test', stamp(), esc(d.error), 'err'); return; }
+    let h = `<div class="row" style="padding:0 0 12px;border:0">
+      <span class="pill ${d.passed?'on':'off'}">${d.passed?'ALL PASS':'FAILED'}</span>
+      <span class="meta">${d.total - d.failed.length}/${d.total} · ${d.took_ms} ms</span></div>`;
+    d.results.forEach(r => {
+      h += `<div class="check"><span class="n">${esc(r.name)}</span>
+        <span class="meta">got ${esc(String(r.got))}</span>
+        <span class="s ${r.ok?'pass':'fail'}">${r.ok?'pass':'fail'}</span></div>`;
+    });
+    card('Self-Test', stamp(), h, d.passed ? 'ok' : 'err');
+    $('tTest').textContent = `${d.total - d.failed.length}/${d.total}`;
+    $('tTest').className = 'v ' + (d.passed ? 'good' : 'bad');
+  } catch(e){ card('Self-Test', stamp(), esc(e.message), 'err'); }
+  finally { busy(b, false); }
+};
+
+// ---------- live check ----------
+$('bLive').onclick = async () => {
+  const b = $('bLive'); busy(b, true);
+  try {
+    const d = await post('/panel/api/livecheck');
+    let h = '';
+    (d.checks||[]).forEach(c => {
+      h += `<div class="check"><span class="n">${esc(c.path)}</span>
+        <span class="meta">${c.ms!==undefined?c.ms+' ms':''}</span>
+        <span class="s ${c.status===200?'pass':'fail'}">${c.status||'ERR'}</span></div>`;
+      if (c.error) h += `<div class="meta" style="padding:0 0 8px">${esc(c.error)}</div>`;
+      if (c.json) h += `<pre class="dim">${esc(JSON.stringify(c.json, null, 2))}</pre>`;
+    });
+    card('Live Site', stamp(), h, d.all_ok ? 'ok' : 'err');
+    $('tLive').textContent = d.all_ok ? 'UP' : 'DOWN';
+    $('tLive').className = 'v ' + (d.all_ok ? 'good' : 'bad');
+  } catch(e){ card('Live Site', stamp(), esc(e.message), 'err'); }
+  finally { busy(b, false); }
+};
+
+// ---------- automation ----------
+function renderAutomation(d){
+  if (!d.ok) return card('Automation', stamp(), esc(d.error || 'unavailable'), 'err');
+  const a = d.automation || {};
+  let h = `<div class="row" style="padding:0 0 12px;border:0">
+    <span class="pill ${a.enabled?'on':'off'}">${esc(a.state||'?')}</span>
+    <span class="meta">${esc((a.trigger||{}).schedule||'')} ${esc((a.trigger||{}).timezone||'')}</span></div>
+    <div class="check"><span class="n">Name</span><span class="meta">${esc(a.name||'')}</span></div>
+    <div class="check"><span class="n">Entrypoint</span><span class="meta">${esc(a.entrypoint||'')}</span></div>
+    <div class="check"><span class="n">Timeout</span><span class="meta">${a.timeout||''} s</span></div>
+    <div class="check"><span class="n">Last triggered</span><span class="meta">${esc(a.last_triggered_at||'never')}</span></div>
+    <div style="margin-top:14px" class="k meta">RECENT RUNS</div>`;
+  (d.runs||[]).forEach(r => {
+    const ok = r.status === 'COMPLETED';
+    h += `<div class="check"><span class="n">${esc((r.started_at||'').slice(0,19).replace('T',' '))}</span>
+      <span class="s ${ok?'pass':'fail'}">${esc(r.status)}</span></div>`;
+    if (r.error_detail) h += `<pre class="err">${esc(String(r.error_detail).slice(0,300))}</pre>`;
+  });
+  const el = card('Automation', stamp(), h, a.enabled ? 'ok' : 'dim');
+  $('tAuto').textContent = a.enabled ? 'ON' : 'OFF';
+  $('tAuto').className = 'v ' + (a.enabled ? 'good' : 'bad');
+  return el;
+}
+$('bAuto').onclick = async () => {
+  const b = $('bAuto'); busy(b, true);
+  try { renderAutomation(await get('/panel/api/automation')); }
+  catch(e){ card('Automation', stamp(), esc(e.message), 'err'); }
+  finally { busy(b, false); }
+};
+
+$('bDispatch').onclick = async () => {
+  const b = $('bDispatch'); busy(b, true);
+  try {
+    const d = await post('/panel/api/automation/dispatch', withPin());
+    if (d.__status === 401) { askPin(); card('Dispatch', stamp(), esc(d.error), 'err'); return; }
+    if (!d.ok) { card('Dispatch', stamp(), esc(d.error), 'err'); return; }
+    card('Dispatch', stamp(),
+      `<span class="pill on">QUEUED</span>\nRun ID: ${esc(d.run.id)}\nStatus: ${esc(d.run.status)}\nTrigger: ${esc(d.run.trigger_source)}\n\nAutomation Status button dabao to runs dekh lo.`,
+      'ok');
+  } catch(e){ card('Dispatch', stamp(), esc(e.message), 'err'); }
+  finally { busy(b, false); }
+};
+
+$('bToggle').onclick = async () => {
+  const b = $('bToggle'); busy(b, true);
+  try {
+    const cur = await get('/panel/api/automation');
+    const want = !(cur.automation && cur.automation.enabled);
+    const fd = new FormData(); fd.append('enabled', String(want));
+    const d = await post('/panel/api/automation/toggle', withPin(fd));
+    if (d.__status === 401) { askPin(); card('Toggle', stamp(), esc(d.error), 'err'); return; }
+    if (!d.ok) { card('Toggle', stamp(), esc(d.error), 'err'); return; }
+    card('Toggle', stamp(), `Automation ab ${d.enabled ? 'ON' : 'OFF'} hai (state: ${esc(d.state)}).`, d.enabled ? 'ok' : 'dim');
+    renderAutomation(await get('/panel/api/automation'));
+  } catch(e){ card('Toggle', stamp(), esc(e.message), 'err'); }
+  finally { busy(b, false); }
+};
+
+// ---------- share ----------
+$('bShare').onclick = async () => {
+  const b = $('bShare'); busy(b, true);
+  try {
+    const d = await post('/panel/api/share');
+    const h = `<div class="row" style="padding:0 0 12px;border:0">
+      <a class="small" href="${d.whatsapp}" target="_blank" rel="noopener">WhatsApp ↗</a>
+      <a class="small" href="${d.telegram}" target="_blank" rel="noopener">Telegram ↗</a>
+      <button class="small" onclick="navigator.clipboard.writeText(${JSON.stringify(d.copy)});this.textContent='Copied ✓'">Copy text</button>
+      <a class="small" href="${d.url}" target="_blank" rel="noopener">Open link ↗</a></div>
+      <pre>${esc(d.message)}</pre>`;
+    card('Share', stamp(), h, 'ok');
+  } catch(e){ card('Share', stamp(), esc(e.message), 'err'); }
+  finally { busy(b, false); }
+};
+
+// ---------- status ----------
+$('bStatus').onclick = async () => {
+  const b = $('bStatus'); busy(b, true);
+  try {
+    const d = await get('/panel/api/status');
+    $('tVersion').textContent = 'v' + d.app.version;
+    card('Full Status', stamp(), esc(JSON.stringify(d, null, 2)), 'dim');
+    $('apiPill').textContent = d.automation.api_key_present ? 'API key ✓' : 'API key ✗';
+    $('apiPill').className = 'pill ' + (d.automation.api_key_present ? 'on' : 'off');
+    if (d.pin_required && !pin()) askPin();
+  } catch(e){ card('Full Status', stamp(), esc(e.message), 'err'); }
+  finally { busy(b, false); }
+};
+
+// ---------- export ----------
+$('bExport').onclick = () => {
+  window.location.href = '/panel/api/export' + (pin() ? '?pin=' + encodeURIComponent(pin()) : '');
+};
+
+// ---------- deploy guide ----------
+$('bDeploy').onclick = () => {
+  const h = `<div class="row" style="padding:0 0 12px;border:0">
+    <button class="small" onclick="navigator.clipboard.writeText(document.getElementById('dg').innerText);this.textContent='Copied ✓'">Copy steps</button>
+    <a class="small" href="https://github.com/new" target="_blank" rel="noopener">github.com/new ↗</a>
+    <a class="small" href="https://render.com/" target="_blank" rel="noopener">render.com ↗</a></div>
+    <pre id="dg">PERMANENT DEPLOY — sirf ek baar karna hai
+
+1. GitHub pe repo banao
+   → github.com/new
+   → Name: authcheck
+   → Public rakho, "Create repository" dabao
+   → Mujhe bolo "repo ban gaya" — main code push kar dunga
+
+   (ya khud: git remote add origin https://github.com/&lt;tum&gt;/authcheck.git
+              git push -u origin master)
+
+2. Render pe deploy karo
+   → render.com → Sign in with GitHub
+   → New + → Blueprint
+   → Repo: authcheck chuno
+   → render.yaml khud detect ho jayega → Apply
+
+3. Render link mil jayega, jaise:
+   https://authcheck-xxxx.onrender.com
+   → Ye link PERMANENT hai. Session band hone par bhi chalta rahega.
+
+4. Us permanent link ko Control Room me daalo:
+   AUTHCHECK_PUBLIC_URL=https://authcheck-xxxx.onrender.com
+
+Note: Render free plan pe 15 min inactivity ke baad sleep hota hai,
+phir pehla request ~30s leta hai. Paid plan pe always-on.</pre>`;
+  card('Permanent Deploy', stamp(), h, 'dim');
+};
+
+// ---------- auto load on open ----------
+(async () => {
+  try {
+    const s = await get('/panel/api/status');
+    $('tVersion').textContent = 'v' + s.app.version;
+    $('apiPill').textContent = s.automation.api_key_present ? 'API key ✓' : 'API key ✗';
+    $('apiPill').className = 'pill ' + (s.automation.api_key_present ? 'on' : 'off');
+  } catch(e){}
+  try { renderAutomation(await get('/panel/api/automation')); } catch(e){}
+  try {
+    const d = await post('/panel/api/selftest');
+    $('tTest').textContent = `${d.total - (d.failed||[]).length}/${d.total}`;
+    $('tTest').className = 'v ' + (d.passed ? 'good' : 'bad');
+  } catch(e){}
+  try {
+    const d = await post('/panel/api/livecheck');
+    $('tLive').textContent = d.all_ok ? 'UP' : 'DOWN';
+    $('tLive').className = 'v ' + (d.all_ok ? 'good' : 'bad');
+  } catch(e){}
+})();
+</script>
+</body>
+</html>

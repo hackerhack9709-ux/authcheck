@@ -26,6 +26,9 @@ from core import (
 
 app = FastAPI(title="AuthCheck")
 
+from panel import router as panel_router  # noqa: E402
+app.include_router(panel_router)
+
 STATIC_DIR = Path(__file__).resolve().parent / "static"
 INDEX_HTML = STATIC_DIR / "index.html"
 

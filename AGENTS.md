@@ -92,6 +92,20 @@ curl -X PATCH "$HOST/api/automation/v1/<id>" -H "Authorization: Bearer $OPENHAND
 
 Verify with a manual dispatch and poll `/runs` until the status is `COMPLETED`.
 
+## Control room (`/panel`)
+
+`panel.py` is a separate router with one endpoint per button. `app.py` includes
+it via `panel_router`. Keep every button backed by a real endpoint — no
+decorative buttons.
+
+- `selftest.py` lives in **both** the app dir and the automation dir. Keep them
+  identical; the app copy is what the panel runs.
+- `run_checks()` must call `CHECKS.clear()` first. `CHECKS` is module-level, so
+  without it repeated runs accumulate (a real bug that showed 18/18).
+- `PANEL_PIN` gates dispatch, toggle and export. Unset = open panel. `start.sh`
+  writes `.panel_pin` (gitignored) and reuses it.
+- `start.sh --test` is the one-command path: deps, self-test, start, links.
+
 ## Do not
 
 - Do not add rate-limit or lockout bypass tooling, phishing pages, OTP grabbers

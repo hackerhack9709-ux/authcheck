@@ -57,6 +57,36 @@ Optional environment variable:
 |------|---------|
 | `FACTCHECK_API_KEY` | Enables the Google Fact Check Tools lookup |
 
+## One-click control room
+
+Everything runs from a single panel:
+
+```bash
+./start.sh --test          # install deps, self-test, start, print every link
+```
+
+Then open `/panel`. Every button performs a real action:
+
+| Button | What it does |
+|--------|--------------|
+| Run Self-Test | Executes the 9 engine checks and shows pass/fail per check |
+| Check Live Site | Probes `/` and `/api/health` on the public URL |
+| Automation Status | Shows the daily job state and the last 5 runs |
+| Run Automation Now | Dispatches the daily job immediately |
+| Toggle Automation | Turns the daily job on or off |
+| Share Links | Builds WhatsApp / Telegram links and copy text |
+| Full Status | Routes, files, python version, uptime |
+| Download Everything | Zips the whole project for backup or hand-off |
+| Permanent Deploy | Copyable GitHub + Render steps |
+
+Stop with `./start.sh --stop`.
+
+### PIN protection
+
+Set `PANEL_PIN` to lock the action buttons. `start.sh` generates a 6-digit PIN
+into `.panel_pin` on first run and reuses it afterwards. With `PANEL_PIN` unset
+the panel is open — only do that on a private machine.
+
 ## Honest limits
 
 - No tool proves truth. The score is about the *artefact*, not the claim.
