@@ -9,6 +9,10 @@ services:
     envVars:
       - key: PYTHON_VERSION
         value: "3.12.6"
+      # Render generates a random PIN so the control room is never open to the
+      # public. Read the value from the dashboard after the first deploy.
+      - key: PANEL_PIN
+        generateValue: true
       # Optional: free key from https://developers.google.com/fact-check/tools/api
       # Uncomment and set to enable the fact-check database lookup.
       # - key: FACTCHECK_API_KEY
