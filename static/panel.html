@@ -353,7 +353,7 @@ $('bDeploy').onclick = () => {
    → Mujhe bolo "repo ban gaya" — main code push kar dunga
 
    (ya khud: git remote add origin https://github.com/&lt;tum&gt;/authcheck.git
-              git push -u origin master)
+              git push -u origin main)
 
 2. Render pe deploy karo
    → render.com → Sign in with GitHub
@@ -369,7 +369,10 @@ $('bDeploy').onclick = () => {
    AUTHCHECK_PUBLIC_URL=https://authcheck-xxxx.onrender.com
 
 Note: Render free plan pe 15 min inactivity ke baad sleep hota hai,
-phir pehla request ~30s leta hai. Paid plan pe always-on.</pre>`;
+phir pehla request ~30s leta hai. Paid plan pe always-on.
+
+Video tab ke liye kuch extra nahi chahiye — ffmpeg pip se aata hai
+(imageio-ffmpeg). Docker se deploy karo to bhi same.</pre>`;
   card('Permanent Deploy', stamp(), h, 'dim');
 };
 
