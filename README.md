@@ -3,9 +3,20 @@
 A mobile-first web app that helps a shopkeeper **verify a payment before handing over the goods**.
 Inspired by the anti-fraud reel: *"Check the payment first, then hand over the goods."*
 
-No build step. No backend. Vanilla HTML + CSS + JS.
+No build step. No frontend framework — vanilla HTML + CSS + JS. An optional
+zero-dependency Node server adds the Razorpay proxy; without it the app runs
+fully offline in sandbox mode.
 
 ## Run it
+
+Simplest — the zero-dependency Node server (serves the app **and** the Razorpay proxy):
+
+```bash
+npm start
+# open http://localhost:8080
+```
+
+Static only, no gateway proxy:
 
 ```bash
 python3 -m http.server 12000
@@ -42,7 +53,7 @@ Final verdict: `SUCCESS` clears the record warnings; `FAILED`/`NOT_FOUND` forces
 
 - **Sandbox** (default) — offline deterministic simulator, no network. The badge on the Verify tab
   shows which mode is active.
-- **Live** — set your endpoint URL, API key, auth style (`bearer` / `x-api-key` / `query`) and
+- **Live** — set your endpoint URL, API key, auth style (`bearer` / `x-api-key` / `query` / `basic`) and
   timeout in **Settings**. The app POSTs:
 
 ```json
@@ -54,6 +65,47 @@ plus `referenceId`, `utr`, `payerName`, `amount`, `bank`, ...).
 
 No credentials ship with the app. Yours are stored only in this browser.
 
+## Deploy it (so it isn't stuck on your laptop)
+
+The Node server serves the static app **and** the Razorpay proxy from one
+process, so a single container is all you need. `Dockerfile` and
+`render.yaml` are ready.
+
+**Render (free tier)**
+
+1. Push this repo to GitHub.
+2. Render → **New → Blueprint**, pick the repo. It reads `render.yaml`.
+3. Fill the four secrets it prompts for (see `.env.example`):
+   `RAZORPAY_KEY_ID`, `RAZORPAY_KEY_SECRET`, `PROXY_USER`, `PROXY_PASS`.
+
+**Railway / Fly.io / any Docker host**
+
+```bash
+docker build -t paycheck .
+docker run -p 8080:8080 \
+  -e RAZORPAY_KEY_ID=rzp_live_xxx \
+  -e RAZORPAY_KEY_SECRET=xxxxxxxx \
+  -e PROXY_USER=merchant \
+  -e PROXY_PASS=$(openssl rand -hex 16) \
+  paycheck
+```
+
+Then in the app's **Settings**: provider `Razorpay (via your proxy)`, mode
+`Live API`, endpoint `https://YOUR-HOST/api/razorpay/verify`, API key =
+`PROXY_USER`, API secret = `PROXY_PASS`.
+
+> Set `PROXY_PASS` to something long and random. Without it the proxy is open,
+> and anyone who finds the URL could look up payments with your Razorpay keys.
+> `/api/health` tells you whether credentials and proxy auth are on.
+
+### Deploy checklist
+
+- [ ] `PROXY_PASS` is long and random — never left as `change-me-to-something-long`
+- [ ] Razorpay keys are **live** keys (`rzp_live_…`) in production, test keys in staging
+- [ ] `curl https://YOUR-HOST/api/health` → `{"ok":true,"razorpayConfigured":true,"proxyAuth":true}`
+- [ ] `curl -i https://YOUR-HOST/api/razorpay/verify/pay_x` → `401` (proxy is gated)
+- [ ] App served over **HTTPS** — a UPI tool on plain HTTP is a phishing lookalike
+
 ## Files
 
 ```
@@ -62,8 +114,14 @@ styles.css            dark UPI-style theme
 auth.js               accounts + session (PBKDF2), per-user data scoping
 gateway.js            payment verification adapter (sandbox + live)
 share.js              WhatsApp / native share / clipboard helpers
+icons.js              hand-drawn single-stroke SVG icon set
 app.js                i18n (English + Hindi), state, views, verification logic
+sw.js                 service worker (stale-while-revalidate)
 vendor/qrcode.min.js  QR generator (local, no CDN)
+server/razorpay-verify.js  static host + Razorpay proxy (zero deps, Node 18+)
+Dockerfile            single-container deploy (app + proxy)
+render.yaml           Render blueprint
+.env.example          server environment template
 ```
 
 ## Language
