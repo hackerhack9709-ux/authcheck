@@ -128,6 +128,16 @@
     if (window.Icon) n.innerHTML = window.Icon(n.dataset.icon, n.classList.contains('tab-ico') ? 21 : 18);
   });
   if ('serviceWorker' in navigator) {
+    // When a new service worker takes control, reload once so the user runs the
+    // version that was just deployed (skip this on the very first install).
+    if (navigator.serviceWorker.controller) {
+      let reloaded = false;
+      navigator.serviceWorker.addEventListener('controllerchange', () => {
+        if (reloaded) return;
+        reloaded = true;
+        location.reload();
+      });
+    }
     window.addEventListener('load', () => {
       navigator.serviceWorker.register('sw.js').then((reg) => {
         // Check for a new deploy on every load so fixes reach users promptly.

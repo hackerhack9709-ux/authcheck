@@ -161,7 +161,13 @@ function serveStatic(req, res, urlPath) {
   fs.stat(file, (err, st) => {
     if (err || !st.isFile()) return send(res, 404, { message: 'Not found' });
     const type = MIME[path.extname(file).toLowerCase()] || 'application/octet-stream';
-    res.writeHead(200, { 'Content-Type': type });
+    // The shell and the service worker must be revalidated on every load, or a
+    // browser may keep running the previous app.js after a deploy.
+    const noCache = /\/(index\.html|sw\.js)$/.test(rel);
+    res.writeHead(200, {
+      'Content-Type': type,
+      'Cache-Control': noCache ? 'no-cache' : 'public, max-age=300'
+    });
     fs.createReadStream(file).pipe(res);
   });
 }
