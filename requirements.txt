@@ -4,3 +4,4 @@ python-multipart
 pillow
 piexif
 imageio-ffmpeg>=0.4.9
+psycopg[binary]>=3.1

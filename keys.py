@@ -16,13 +16,13 @@ from __future__ import annotations
 
 import os
 import secrets
-import sqlite3
 import threading
 import time
+from contextlib import contextmanager
 from datetime import datetime, timedelta, timezone
-from pathlib import Path
 
-DB_PATH = Path(os.environ.get("AUTHCHECK_DB", "./data/authcheck.db"))
+import db
+
 KEY_PREFIX = "ac_"
 
 # requests per hour, and the endpoints that count against the quota
@@ -43,9 +43,13 @@ _usage: dict[str, int] = {}
 # --------------------------------------------------------------------------- #
 # storage
 # --------------------------------------------------------------------------- #
-def _connect() -> sqlite3.Connection:
-    DB_PATH.parent.mkdir(parents=True, exist_ok=True)
-    conn = sqlite3.connect(DB_PATH, timeout=10)
+_schema_ready = False
+
+
+def _ensure_schema(conn) -> None:
+    global _schema_ready
+    if _schema_ready:
+        return
     conn.execute(
         """
         CREATE TABLE IF NOT EXISTS api_keys (
@@ -61,10 +65,16 @@ def _connect() -> sqlite3.Connection:
         """
     )
     # older databases predate expiry
-    cols = {r[1] for r in conn.execute("PRAGMA table_info(api_keys)")}
-    if "expires_at" not in cols:
+    if "expires_at" not in db.table_columns(conn, "api_keys"):
         conn.execute("ALTER TABLE api_keys ADD COLUMN expires_at TEXT")
-    return conn
+    _schema_ready = True
+
+
+@contextmanager
+def _connect():
+    with db.connect() as conn:
+        _ensure_schema(conn)
+        yield conn
 
 
 def _expiry_from_now(days: int) -> str | None:
@@ -294,6 +304,7 @@ def usage_summary() -> dict:
     return {
         "keys_in_use": len(_usage),
         "requests_this_process": total,
-        "storage": "sqlite" if storage_available() else "memory-only",
+        "storage": db.backend() if storage_available() else "memory-only",
+        "persistent": db.backend() != "sqlite",
         "tiers": {name: {"limit_per_hour": t["limit"], "label": t["label"]} for name, t in TIERS.items()},
     }

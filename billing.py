@@ -19,22 +19,22 @@ import hashlib
 import hmac
 import json
 import os
-import sqlite3
 import threading
 import urllib.error
 import urllib.parse
 import urllib.request
 import uuid
+from contextlib import contextmanager
 from datetime import datetime, timedelta, timezone
-from pathlib import Path
 
+import db
 import keys
 
 RAZORPAY_KEY_ID = os.environ.get("RAZORPAY_KEY_ID", "").strip()
 RAZORPAY_KEY_SECRET = os.environ.get("RAZORPAY_KEY_SECRET", "").strip()
 RAZORPAY_WEBHOOK_SECRET = os.environ.get("RAZORPAY_WEBHOOK_SECRET", "").strip()
 
-DB_PATH = Path(os.environ.get("AUTHCHECK_DB", "./data/authcheck.db"))
+DB_PATH = db.SQLITE_PATH
 _lock = threading.Lock()
 
 # Monthly plans. Prices in INR; Razorpay wants the smallest unit (paise).
@@ -60,9 +60,13 @@ PLANS = {
 }
 
 
-def _connect() -> sqlite3.Connection:
-    DB_PATH.parent.mkdir(parents=True, exist_ok=True)
-    conn = sqlite3.connect(DB_PATH, timeout=10)
+_schema_ready = False
+
+
+def _ensure_schema(conn) -> None:
+    global _schema_ready
+    if _schema_ready:
+        return
     conn.execute(
         """
         CREATE TABLE IF NOT EXISTS purchases (
@@ -79,10 +83,16 @@ def _connect() -> sqlite3.Connection:
         )
         """
     )
-    cols = {r[1] for r in conn.execute("PRAGMA table_info(purchases)")}
-    if "renew_key" not in cols:
+    if "renew_key" not in db.table_columns(conn, "purchases"):
         conn.execute("ALTER TABLE purchases ADD COLUMN renew_key TEXT")
-    return conn
+    _schema_ready = True
+
+
+@contextmanager
+def _connect():
+    with db.connect() as conn:
+        _ensure_schema(conn)
+        yield conn
 
 
 def razorpay_ready() -> bool:
@@ -181,14 +191,12 @@ def verify_webhook(raw_body: bytes, signature: str) -> bool:
 
 def _record(ref: str, plan_id: str, amount: int, email: str, payment_id: str = "",
             issued_key: str = "", status: str = "pending", renew_key: str = "") -> None:
+    columns = ["id", "plan", "amount_inr", "email", "payment_id", "order_ref",
+               "issued_key", "created_at", "status", "renew_key"]
+    values = (ref, plan_id, amount, email, payment_id, ref, issued_key,
+              datetime.now(timezone.utc).isoformat(timespec="seconds"), status, renew_key)
     with _lock, _connect() as conn:
-        conn.execute(
-            "INSERT OR REPLACE INTO purchases "
-            "(id, plan, amount_inr, email, payment_id, order_ref, issued_key, created_at, status, renew_key) "
-            "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
-            (ref, plan_id, amount, email, payment_id, ref, issued_key,
-             datetime.now(timezone.utc).isoformat(timespec="seconds"), status, renew_key),
-        )
+        conn.execute(db.upsert("purchases", columns, conflict="id"), values)
 
 
 def _lookup_reference(ref: str) -> dict | None:
