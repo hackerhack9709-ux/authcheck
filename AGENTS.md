@@ -3,7 +3,9 @@
 Repository-specific notes for AI agents working in this codebase.
 
 ## What this is
-A single-page, dependency-light **static web app** (no build step, no backend, no framework).
+A single-page, dependency-light web app. The frontend is **static** (no build step, no framework);
+an optional zero-dependency Node server adds the Razorpay verification proxy and serves the same
+static files, so the whole thing deploys as one container.
 It is a UPI payment-verification helper for shopkeepers, inspired by an anti-fraud Instagram reel
 ("Check the payment first, then hand over the goods").
 
@@ -14,17 +16,28 @@ styles.css            dark UPI-style theme; CSS variables in :root
 auth.js               window.Auth  — accounts, PBKDF2 hashing, session, per-user data keys
 gateway.js            window.Gateway — payment verification adapter (sandbox + live)
 share.js              window.Share — WhatsApp / native share / clipboard
+icons.js              window.Icon — hand-drawn single-stroke SVG icon set
 app.js                everything else: i18n, state, views, verification logic, QR
+sw.js                 service worker (stale-while-revalidate)
 vendor/qrcode.min.js  qrcode-generator 1.4.4 (vendored; global `qrcode`)
+server/razorpay-verify.js  static host + Razorpay proxy (Node 18+ built-ins only)
+Dockerfile            single-container deploy (app + proxy)
+render.yaml           Render blueprint; .env.example documents the server env
 ```
 
 ## Run / verify
 ```bash
-python3 -m http.server 12000     # then open http://localhost:12000
-for f in app.js auth.js gateway.js share.js; do node --check $f; done
+npm start                        # app + proxy on http://localhost:8080
+python3 -m http.server 12000     # static only, no proxy
+npm run check                    # node --check across every JS file
 ```
 There is **no automated test suite**. Verify changes by loading the page and exercising the
 five tabs. Preview hosts: see `work_hosts` (ports 12000 / 12001).
+
+The proxy needs `RAZORPAY_KEY_ID`, `RAZORPAY_KEY_SECRET`, `PROXY_USER`, `PROXY_PASS`. Set
+`RAZORPAY_API_BASE` to point at a stub during testing. `/api/health` reports whether
+credentials and proxy auth are on. **Never leave the proxy unauthenticated** — it spends your
+Razorpay keys on behalf of anyone who reaches the URL.
 
 Important: Web Crypto (`crypto.subtle`) only exists in a secure context. Use `localhost` or https,
 otherwise `auth.js` falls back to a weak hash and shows a warning.
