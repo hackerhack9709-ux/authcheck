@@ -49,8 +49,41 @@ under **Environment**:
 | `RAZORPAY_KEY_SECRET` | the secret shown once at generation |
 | `RAZORPAY_WEBHOOK_SECRET` | any long random string you make up |
 | `AUTHCHECK_PUBLIC_URL` | `https://authcheck-u1e8.onrender.com` |
+| `AUTHCHECK_DATABASE_URL` | a Postgres connection string (see below) |
 
 Save; Render restarts. `GET /api/plans` should now report `"configured": true`.
+
+### Storage must be persistent
+
+A free Render service has **no disk**. Keys written to SQLite are wiped on every
+redeploy, so a customer pays, gets a key, and finds it dead after the next
+deploy — this was observed on the live service before the fix.
+
+Set `AUTHCHECK_DATABASE_URL` to any Postgres and every key and purchase is
+stored there instead:
+
+- **Render Postgres** (easiest, same network): Dashboard → **New → Postgres**,
+  free plan, same region as the service. Copy the **Internal** connection string
+  into `AUTHCHECK_DATABASE_URL`. The free instance expires after 30 days — plan
+  to move to a paid one, or use a service that does not expire.
+- **Neon / Supabase**: both have free tiers that do not expire. Copy their
+  connection string, keeping `?sslmode=require`.
+
+`GET /panel/api/keys` reports `usage.storage` — it should read `postgres`. If it
+reads `sqlite`, the variable is missing or unreachable and keys are not durable.
+
+Create a Render Postgres from the API if you prefer:
+
+```bash
+curl -s -X POST -H "Authorization: Bearer $RENDER_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{"name":"authcheck-db","plan":"free","region":"oregon","version":"16","ownerId":"tea-..."}' \
+  https://api.render.com/v1/postgres | python3 -m json.tool
+
+# then, once status is "available":
+curl -s -H "Authorization: Bearer $RENDER_KEY" \
+  https://api.render.com/v1/postgres/<id>/connection-info | python3 -m json.tool
+```
 
 ### Point the webhook at the app
 
@@ -81,8 +114,7 @@ curl -s -H "X-API-Key: ac_..." https://authcheck-u1e8.onrender.com/api/usage
 
 - Keys run for 30 days. Renewals reuse the same key via a `renew-<key>` reference,
   so a customer never has to swap credentials.
-- On a free Render instance the SQLite file lives on ephemeral disk and resets on
-  redeploy. Attach a Render disk and set `AUTHCHECK_DB=/data/authcheck.db`, or use
-  `AUTHCHECK_API_KEYS` for static keys. Paid keys issued before a wipe must be
-  re-issued from **Payments → Issue key**.
 - `PANEL_PIN` is set on Render already; keep it private.
+- Razorpay's REST API will not accept webhook creation from a script (it returns
+  400 `json request could not be decoded` for every payload). Add the webhook in
+  the dashboard as above; it is the one manual step.

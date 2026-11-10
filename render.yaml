@@ -17,3 +17,17 @@ services:
       # Uncomment and set to enable the fact-check database lookup.
       # - key: FACTCHECK_API_KEY
       #   sync: false
+      # Persistent storage. Without this, issued keys live on Render's
+      # ephemeral disk and vanish on every redeploy. Point it at any Postgres
+      # (Render Postgres, Neon, Supabase); the app falls back to SQLite when
+      # this is unset, which is fine for local development.
+      - key: AUTHCHECK_DATABASE_URL
+        sync: false
+      # Payments. Set both to switch checkout on; see DEPLOY.md.
+      - key: RAZORPAY_KEY_ID
+        sync: false
+      - key: RAZORPAY_KEY_SECRET
+        sync: false
+      # Shared with the webhook you add in the Razorpay dashboard.
+      - key: RAZORPAY_WEBHOOK_SECRET
+        sync: false

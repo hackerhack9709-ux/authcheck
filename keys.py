@@ -43,12 +43,13 @@ _usage: dict[str, int] = {}
 # --------------------------------------------------------------------------- #
 # storage
 # --------------------------------------------------------------------------- #
-_schema_ready = False
+_schema_engine: str | None = None
 
 
 def _ensure_schema(conn) -> None:
-    global _schema_ready
-    if _schema_ready:
+    global _schema_engine
+    engine = db.backend()
+    if _schema_engine == engine:
         return
     conn.execute(
         """
@@ -67,7 +68,7 @@ def _ensure_schema(conn) -> None:
     # older databases predate expiry
     if "expires_at" not in db.table_columns(conn, "api_keys"):
         conn.execute("ALTER TABLE api_keys ADD COLUMN expires_at TEXT")
-    _schema_ready = True
+    _schema_engine = engine
 
 
 @contextmanager

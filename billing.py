@@ -60,12 +60,13 @@ PLANS = {
 }
 
 
-_schema_ready = False
+_schema_engine: str | None = None
 
 
 def _ensure_schema(conn) -> None:
-    global _schema_ready
-    if _schema_ready:
+    global _schema_engine
+    engine = db.backend()
+    if _schema_engine == engine:
         return
     conn.execute(
         """
@@ -85,7 +86,7 @@ def _ensure_schema(conn) -> None:
     )
     if "renew_key" not in db.table_columns(conn, "purchases"):
         conn.execute("ALTER TABLE purchases ADD COLUMN renew_key TEXT")
-    _schema_ready = True
+    _schema_engine = engine
 
 
 @contextmanager

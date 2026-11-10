@@ -14,9 +14,14 @@ Deployed as a FastAPI web app; also packaged as a no-LLM automation.
 authcheck/
   core.py         framework-free analysis engine (all signal logic lives here)
   app.py          FastAPI HTTP layer over core.py
+  keys.py         API-key tiers, expiry and metering
+  billing.py      Razorpay payment links, webhook fulfilment, renewal
+  db.py           storage layer: Postgres when AUTHCHECK_DATABASE_URL is set, else SQLite
+  panel.py        control room router (/panel)
   static/index.html   single-file frontend (no build step)
+  static/panel.html   control room UI
   requirements.txt / render.yaml / Dockerfile   deployment
-  README.md / PRD-authcheck.md / RESEARCH-authenticity-apps.md
+  DEPLOY.md / README.md / PRD-authcheck.md / RESEARCH-authenticity-apps.md
 authcheck-automation/
   core.py         copy of the engine (keep in sync)
   selftest.py     deterministic self-test, 9 checks, no LLM
@@ -61,11 +66,15 @@ cards.
 
 ## Deployment state
 
+- Live on Render: **https://authcheck-u1e8.onrender.com** (service
+  `srv-dbovd99srm7s73d7d5cg`, free plan, oregon, auto-deploy from `main`).
+- Storage is **Render Postgres** (`authcheck-db`, free, expires 2026-12-10) via
+  `AUTHCHECK_DATABASE_URL`. The free Postgres expires after 30 days — replace it
+  or move to a paid instance before then, or issued keys stop resolving.
+- Razorpay runs in **test mode** (`rzp_test_...`). Switch to live keys after KYC.
+- A free Render service still sleeps after inactivity; the first request after a
+  nap is slow. That is unrelated to storage, which now survives restarts.
 - `render.yaml` and `Dockerfile` are ready.
-- **Blocker:** the workspace `GITHUB_TOKEN` is a GitHub App token scoped to
-  `hackerhack9709-ux/apnavault` only. It **cannot create repositories**. To get a
-  permanent public URL, the user must create a repo (e.g. `authcheck`) and grant
-  access, or connect Render directly to a new repo.
 - The live `work-1-*` URL is runtime-session bound and dies with the session.
 
 ## Automation
@@ -138,3 +147,26 @@ decorative buttons.
 - Do not add rate-limit or lockout bypass tooling, phishing pages, OTP grabbers
   or similar. This project is a defender tool; keep it that way.
 - Do not commit `server.log`, `__pycache__` or generated tarballs.
+
+## Storage, keys and payments (v0.5)
+
+Every key and purchase query goes through `db.py`. With `AUTHCHECK_DATABASE_URL`
+set it speaks Postgres; otherwise it falls back to SQLite at `AUTHCHECK_DB`
+(`./data/authcheck.db`). Callers use `?` placeholders and one context manager;
+`db.py` rewrites the placeholders and picks `ON CONFLICT` vs `INSERT OR REPLACE`.
+**Never** reintroduce a bare `sqlite3.connect` — a free Render service has no
+disk, so keys would be wiped on every redeploy.
+
+- `keys.create_key(name, tier, days)` — `days=0` never expires; paid plans pass 30.
+  Expired and revoked keys are both invalid, but `why_invalid()` distinguishes them.
+- `keys.extend_key(key, days)` — renews in place, from now if already lapsed.
+- `billing.PLANS` holds the prices. A reference of the form `renew-<renew_key>`
+  extends the existing key instead of minting a new one; a plain reference issues
+  a key and stores a `renew_key` for later.
+- `billing.fulfil_payment()` is idempotent — replayed webhooks return the same key.
+- Webhook HMAC is verified before anything is issued; `RAZORPAY_WEBHOOK_SECRET`
+  must match the value in the Razorpay dashboard.
+
+Razorpay's API refuses webhook creation from the CLI (a gateway quirk), so the
+webhook is added once in the dashboard. Everything downstream of it is verified
+end to end against the live service.

@@ -16,6 +16,7 @@ from __future__ import annotations
 
 import os
 import sqlite3
+import time
 from contextlib import contextmanager
 from pathlib import Path
 
@@ -24,21 +25,23 @@ DATABASE_URL = (
     os.environ.get("AUTHCHECK_DATABASE_URL") or os.environ.get("DATABASE_URL") or ""
 ).strip()
 
-# Flipped to False the first time a Postgres connect fails, so we do not retry a
-# broken URL on every request.
-_postgres_ok = True
+# A failed connect is not permanent — Postgres may simply not be ready during a
+# cold start. Back off for a while, then try again, rather than silently serving
+# from ephemeral SQLite for the rest of the process's life.
+_RETRY_AFTER_SECONDS = 30
+_postgres_retry_at = 0.0
 
 
 def backend() -> str:
     """A short label for the panel: which engine is actually serving queries."""
     if not DATABASE_URL:
         return "sqlite"
-    return "postgres" if _postgres_ok else "sqlite (postgres unreachable)"
+    return "postgres" if time.time() >= _postgres_retry_at else "sqlite (postgres unreachable)"
 
 
 def is_postgres() -> bool:
     """True when Postgres is configured and reachable, so callers can pick dialect."""
-    return bool(DATABASE_URL) and _postgres_ok
+    return bool(DATABASE_URL) and time.time() >= _postgres_retry_at
 
 
 def upsert(table: str, columns: list[str], conflict: str) -> str:
@@ -69,17 +72,17 @@ class _PostgresConnection:
 @contextmanager
 def connect():
     """Yield a connection, commit on success, roll back and close on error."""
-    global _postgres_ok
-    if DATABASE_URL and _postgres_ok:
+    global _postgres_retry_at
+    if DATABASE_URL and time.time() >= _postgres_retry_at:
         try:
             import psycopg
         except ImportError:
-            _postgres_ok = False
+            _postgres_retry_at = time.time() + _RETRY_AFTER_SECONDS
         else:
             try:
-                conn = psycopg.connect(DATABASE_URL)
+                conn = psycopg.connect(DATABASE_URL, connect_timeout=10)
             except Exception:
-                _postgres_ok = False
+                _postgres_retry_at = time.time() + _RETRY_AFTER_SECONDS
             else:
                 try:
                     yield _PostgresConnection(conn)
@@ -105,7 +108,7 @@ def connect():
 
 def table_columns(conn, table: str) -> set[str]:
     """Column names of `table`, so a migration can add a missing one."""
-    if DATABASE_URL and _postgres_ok:
+    if is_postgres():
         rows = conn.execute(
             "SELECT column_name FROM information_schema.columns WHERE table_name = ?",
             (table,),

@@ -88,9 +88,16 @@ Every metered response carries `X-RateLimit-Tier`, `X-RateLimit-Limit` and
 `X-RateLimit-Remaining`. Over the limit returns `429` with `Retry-After`.
 
 Keys are created and revoked from the control room (`/panel` → API Keys). They
-are stored in SQLite under `data/`, which is excluded from the export bundle and
-from git. On hosts without a writable disk, supply keys through the
-`AUTHCHECK_API_KEYS` environment variable as `key:tier,key:tier` instead.
+are stored through `db.py`, which uses Postgres when `AUTHCHECK_DATABASE_URL` is
+set and SQLite under `data/` otherwise. **On a host with an ephemeral filesystem
+(Render's free plan, most containers) you must set `AUTHCHECK_DATABASE_URL`** —
+otherwise a key issued after a payment is wiped on the next redeploy. Check
+`GET /panel/api/keys` → `usage.storage`; it should read `postgres`. As a
+last resort, `AUTHCHECK_API_KEYS` supplies static keys as `key:tier,key:tier`.
+
+Paid keys carry a 30-day expiry. An expired key is rejected like a revoked one
+and falls back to the anonymous quota; `keys.why_invalid()` reports `expired`
+rather than `unknown` so the panel can say which.
 
 Optional environment variables:
 
@@ -99,6 +106,8 @@ Optional environment variables:
 | `FACTCHECK_API_KEY` | Adds the Google Fact Check Tools lookup on top of the keyless references |
 | `PANEL_PIN` | Locks the control-room action buttons and the key-management endpoints |
 | `AUTHCHECK_API_KEYS` | Static keys for read-only filesystems, e.g. `ac_abc:pro,ac_def:free` |
+| `AUTHCHECK_DATABASE_URL` | Postgres connection string — **required in production** so keys survive restarts |
+| `DATABASE_URL` | Alias for `AUTHCHECK_DATABASE_URL`; picked up automatically if present |
 | `AUTHCHECK_DB` | Override the SQLite path (default `./data/authcheck.db`) |
 | `AUTHCHECK_PUBLIC_URL` | Public base URL; used as the Razorpay callback target |
 | `RAZORPAY_KEY_ID` | Razorpay key id — enables checkout |
@@ -115,8 +124,15 @@ issued on the matching tier and shown on `/billing/success`. Fulfilment is
 idempotent, so replayed webhooks return the same key.
 
 Point Razorpay's webhook at `https://<your-host>/billing/webhook` and subscribe
-to `payment_link.paid`. Without the three Razorpay variables the checkout
-endpoint reports exactly which ones are missing instead of failing silently.
+to `payment_link.paid`. Add it in the Razorpay dashboard — their REST API
+rejects webhook creation from a script. Without the three Razorpay variables the
+checkout endpoint reports exactly which ones are missing instead of failing
+silently.
+
+Renewals reuse the same key. A purchase stores a `renew_key`; the panel's
+**Renew** button opens a link whose reference is `renew-<renew_key>`, and
+`fulfil_payment` extends the existing key by 30 days instead of minting a new
+one, so the customer never swaps credentials.
 
 ## One-click control room
 
