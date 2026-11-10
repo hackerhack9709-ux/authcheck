@@ -949,6 +949,23 @@
     $('#logoutBtn').onclick = signOut;
     $('#userChip').onclick = () => go('settings');
 
+    // PWA install prompt (Chrome/Edge/Android). iOS Safari has no event — the
+    // button stays hidden and users install via Share > Add to Home Screen.
+    let installEvent = null;
+    window.addEventListener('beforeinstallprompt', (e) => {
+      e.preventDefault();
+      installEvent = e;
+      $('#installBtn').hidden = false;
+    });
+    $('#installBtn').onclick = async () => {
+      if (!installEvent) return;
+      installEvent.prompt();
+      const { outcome } = await installEvent.userChoice;
+      if (outcome === 'accepted') $('#installBtn').hidden = true;
+      installEvent = null;
+    };
+    window.addEventListener('appinstalled', () => { $('#installBtn').hidden = true; });
+
     // auth screen
     $$('#authSeg .seg-btn').forEach((b) => b.onclick = () => setAuthMode(b.dataset.auth));
     $('#authForm').onsubmit = submitAuth;
