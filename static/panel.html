@@ -88,6 +88,7 @@ pre{margin:0;font-family:var(--f-m);font-size:.72rem;line-height:1.7;white-space
   <div class="brand">Auth<i>Check</i><span>One-Click Control Room</span></div>
   <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
     <span class="pill" id="apiPill">API —</span>
+    <a class="small" href="/for-teams" target="_blank">Teams page ↗</a>
     <a class="small" href="/" target="_blank">Open app ↗</a>
   </div>
 </div>
@@ -143,6 +144,11 @@ pre{margin:0;font-family:var(--f-m);font-size:.72rem;line-height:1.7;white-space
       <span class="tag">monetise</span><span class="ic">💳</span>
       <span class="t">Payments</span>
       <span class="d">Razorpay status, plans aur recent purchases dekho.</span>
+    </button>
+    <button class="btn" id="bLeads">
+      <span class="tag">monetise</span><span class="ic">📥</span>
+      <span class="t">Key Requests</span>
+      <span class="d">/for-teams page se aaye free-key requests — ek click me key issue karo.</span>
     </button>
     <button class="btn" id="bStatus">
       <span class="tag">1 click</span><span class="ic">📊</span>
@@ -434,6 +440,46 @@ $('bBilling').onclick = async () => {
   const b = $('bBilling'); busy(b, true);
   try { await renderBilling(); }
   catch(e){ card('Payments', stamp(), esc(e.message), 'err'); }
+  finally { busy(b, false); }
+};
+
+// ---------- key requests (leads from /for-teams) ----------
+async function renderLeads(){
+  const d = await get('/panel/api/requests?pin=' + encodeURIComponent(pin()));
+  if (!d.ok){ card('Key Requests', stamp(), esc(d.error || 'failed'), 'err'); return; }
+  const rows = (d.requests||[]).map(r => {
+    const issued = r.status === 'issued';
+    return `<div class="row" style="padding:8px 0;border:0;align-items:flex-start">
+      <div style="flex:1">
+        <div class="mono">${esc(r.name)} <span class="small">· ${esc(r.org || 'no org')}</span></div>
+        <div class="small">${esc(r.email)} · wants <b>${esc(r.wanted_tier)}</b> · ${esc(r.created_at.slice(0,10))}</div>
+        ${r.use_case ? `<div class="small" style="color:var(--muted-2)">“${esc(r.use_case)}”</div>` : ''}
+      </div>
+      ${issued
+        ? `<span class="small">issued · ${esc((r.issued_key||'').slice(0,12))}…</span>`
+        : `<button class="small" onclick="issueLead('${esc(r.id)}')">Issue key</button>`}
+    </div>`;
+  }).join('') || '<div class="small">No requests yet. Send people to /for-teams.</div>';
+  const h = `<div class="small" style="margin-bottom:10px">${d.counts.new} new · ${d.counts.total} total</div>
+    ${rows}
+    <div class="small" style="margin-top:12px;color:var(--muted-2)">
+      Issue key = the plan they asked for is mapped to its tier automatically (starter → pro, pro → desk).
+    </div>`;
+  card('Key Requests', stamp(), h, 'ok');
+}
+async function issueLead(id){
+  const fd = new FormData(); fd.append('request_id', id); fd.append('pin', pin());
+  const d = await post('/panel/api/requests/issue', fd);
+  if (!d.ok){ card('Issue key', stamp(), esc(d.error || 'failed'), 'err'); return; }
+  card('Key issued', stamp(), `<div class="small">Tier <b>${esc(d.tier)}</b> for ${esc(d.for)}. Email it to them.</div>
+    <pre>${esc(d.key.key)}</pre>
+    <button class="small" onclick="copyKey('${esc(d.key.key)}')">Copy key</button>`, 'ok');
+  renderLeads();
+}
+$('bLeads').onclick = async () => {
+  const b = $('bLeads'); busy(b, true);
+  try { await renderLeads(); }
+  catch(e){ card('Key Requests', stamp(), esc(e.message), 'err'); }
   finally { busy(b, false); }
 };
 

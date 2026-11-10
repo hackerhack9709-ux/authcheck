@@ -30,6 +30,7 @@ os.environ.setdefault("AUTHCHECK_DB", os.path.join(tempfile.gettempdir(), "authc
 
 import core  # noqa: E402
 import keys  # noqa: E402
+import leads  # noqa: E402
 
 
 # --------------------------------------------------------------------------- #
@@ -235,6 +236,26 @@ def run_checks() -> tuple[bool, list[dict]]:
     check("renew reference extends instead of reissuing", renewed.get("renewed"), True)
     check("renewal keeps the same key", renewed.get("key"), first["key"])
     check("unknown renewal key is refused", billing.fulfil_payment("renew-deadbeef", "p").get("ok"), False)
+
+    # inbound key requests (the /for-teams funnel)
+    made = leads.create_request("Test Reporter", "reporter@newsroom.in", org="Test Desk",
+                                use_case="triaging tipline photos", wanted_tier="pro")
+    check("a valid request is stored", made.get("ok"), True)
+    check("bad email is refused", leads.create_request("X", "not-an-email").get("ok"), False)
+    check("one-word name is refused", leads.create_request("A", "a@b.co").get("ok"), False)
+    unknown_plan = leads.create_request("Yash", "yash@b.co", wanted_tier="gold")
+    stored = next(r for r in leads.list_requests(50) if r["id"] == unknown_plan["id"])
+    check("an unknown plan falls back to free", stored["wanted_tier"], "free")
+    before = leads.counts()["new"]
+    check("requests are counted", before >= 1, True)
+    check("a request can be marked issued", leads.mark_issued(made["id"], "ac_test_lead"), True)
+    after = next(r for r in leads.list_requests(50) if r["id"] == made["id"])
+    check("issued request keeps its key", after["status"], "issued")
+    check("issuing drops the new count", leads.counts()["new"], before - 1)
+
+    # plan names must resolve to real key tiers, or the panel would 400
+    check("starter plan maps to a real tier", billing.PLANS["starter"]["tier"] in keys.TIERS, True)
+    check("pro plan maps to a real tier", billing.PLANS["pro"]["tier"] in keys.TIERS, True)
 
     passed = all(c["ok"] for c in CHECKS)
     return passed, CHECKS

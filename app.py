@@ -12,6 +12,7 @@ from PIL import Image
 
 import keys
 import billing
+import leads
 
 from core import (
     FACTCHECK_KEY,
@@ -187,6 +188,25 @@ def api_plans():
     return {"ok": True, **billing.billing_summary()}
 
 
+@app.post("/api/request-key")
+async def request_key(
+    name: str = Form(...),
+    email: str = Form(...),
+    org: str = Form(""),
+    use_case: str = Form(""),
+    plan: str = Form("free"),
+    website: str = Form(""),
+):
+    """Capture a free-key request from the /for-teams page.
+
+    `website` is a honeypot: it is hidden in the form, so a value means a bot.
+    Nothing is issued here — an operator reviews the list and mints a key.
+    """
+    if website.strip():
+        return {"ok": True, "queued": True, "note": "thanks"}
+    return leads.create_request(name, email, org=org, use_case=use_case, wanted_tier=plan)
+
+
 @app.post("/billing/checkout")
 async def billing_checkout(plan: str = Form(...), email: str = Form("")):
     """Open a Razorpay payment link for a plan and hand the URL back to the browser."""
@@ -270,6 +290,14 @@ def billing_success(ref: str = "", key: str = ""):
 @app.get("/", response_class=HTMLResponse)
 def index():
     return HTMLResponse(INDEX_HTML.read_text(encoding="utf-8"))
+
+
+TEAMS_HTML = STATIC_DIR / "teams.html"
+
+
+@app.get("/for-teams", response_class=HTMLResponse)
+def for_teams():
+    return HTMLResponse(TEAMS_HTML.read_text(encoding="utf-8"))
 
 
 if __name__ == "__main__":

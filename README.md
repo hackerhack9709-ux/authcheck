@@ -134,6 +134,18 @@ Renewals reuse the same key. A purchase stores a `renew_key`; the panel's
 `fulfil_payment` extends the existing key by 30 days instead of minting a new
 one, so the customer never swaps credentials.
 
+### Winning teams (free-key requests)
+
+`/for-teams` is the B2B page: the pitch, the use cases, API samples in curl,
+Python and JavaScript, the pricing, and a request form. Submitting it calls
+`POST /api/request-key`, which stores the lead through `leads.py` (same Postgres
+or SQLite store as everything else). Nothing is issued automatically — open
+**Key Requests** in the control room and mint a key per request; the plan the
+visitor asked for is mapped to its tier for you.
+
+`OUTREACH.md` is the playbook: who to approach, what to say, and how to handle
+the replies.
+
 ## One-click control room
 
 Everything runs from a single panel. Open `/panel`. Every button performs a real
@@ -149,6 +161,7 @@ action:
 | Share Links | Builds WhatsApp / Telegram links and copy text |
 | API Keys | Creates, lists and revokes free/pro/desk API keys |
 | Payments | Razorpay status, plan catalogue and recent purchases |
+| Key Requests | Inbound free-key requests from `/for-teams`, issue in one click |
 | Full Status | Routes, files, python version, uptime |
 | Download Everything | Zips the whole project for backup or hand-off |
 | Permanent Deploy | Copyable GitHub + Render steps |

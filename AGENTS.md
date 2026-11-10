@@ -16,12 +16,14 @@ authcheck/
   app.py          FastAPI HTTP layer over core.py
   keys.py         API-key tiers, expiry and metering
   billing.py      Razorpay payment links, webhook fulfilment, renewal
+  leads.py        inbound free-key requests from the /for-teams page
   db.py           storage layer: Postgres when AUTHCHECK_DATABASE_URL is set, else SQLite
   panel.py        control room router (/panel)
   static/index.html   single-file frontend (no build step)
+  static/teams.html   B2B landing page served at /for-teams
   static/panel.html   control room UI
   requirements.txt / render.yaml / Dockerfile   deployment
-  DEPLOY.md / README.md / PRD-authcheck.md / RESEARCH-authenticity-apps.md
+  DEPLOY.md / README.md / OUTREACH.md / PRD-authcheck.md / RESEARCH-authenticity-apps.md
 authcheck-automation/
   core.py         copy of the engine (keep in sync)
   selftest.py     deterministic self-test, 9 checks, no LLM
@@ -170,3 +172,22 @@ disk, so keys would be wiped on every redeploy.
 Razorpay's API refuses webhook creation from the CLI (a gateway quirk), so the
 webhook is added once in the dashboard. Everything downstream of it is verified
 end to end against the live service.
+
+## Customer acquisition (v0.5)
+
+Two surfaces feed the funnel, and `OUTREACH.md` is the playbook.
+
+- `static/teams.html` at `/for-teams` is the B2B pitch: why teams, use cases,
+  the API with curl/Python/JS samples, pricing, and a free-key request form.
+- `POST /api/request-key` stores a request through `leads.py`. It is public, so
+  it validates name and email and carries a hidden `website` honeypot field;
+  a filled honeypot returns a fake success and stores nothing.
+- Nothing is issued automatically. An operator opens **Key Requests** in the
+  control room (`GET /panel/api/requests`) and mints a key with
+  `POST /panel/api/requests/issue`, which marks the request issued.
+- The request form asks for a *plan* (`free`/`starter`/`pro`); keys are minted
+  on a *tier* (`free`/`pro`/`desk`). `billing.PLANS` holds that mapping —
+  resolve through it, never assume the plan name is a tier name.
+
+Razorpay activation (KYC) is the gate on real revenue: until the account is live,
+checkout can only take test payments. See `OUTREACH.md` §0.

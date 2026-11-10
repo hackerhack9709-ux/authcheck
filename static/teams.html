@@ -1,0 +1,487 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<title>AuthCheck for Teams — Content authenticity API</title>
+<meta name="description" content="An explainable content-authenticity API for newsrooms, fact-checkers and platform trust teams. Image, audio, video and claim analysis with every reason behind the score."/>
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400;12..96,600;12..96,800&family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;1,6..72,400&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet"/>
+<style>
+:root{
+  --ink:#0a0b0d; --ink-2:#101215; --ink-3:#171a1f; --ink-4:#1e2229;
+  --line:#272c34; --line-2:#343a44;
+  --amber:#ffc63d; --amber-2:#ffdd8f; --amber-dim:#8a6a1c;
+  --stamp:#e5484d; --good:#3ecf8e;
+  --text:#e7e5e0; --muted:#8b8f98; --muted-2:#5f646d;
+  --f-display:"Bricolage Grotesque",Impact,sans-serif;
+  --f-body:"Newsreader",Georgia,serif;
+  --f-mono:"IBM Plex Mono",ui-monospace,Menlo,monospace;
+}
+*{box-sizing:border-box}
+html{scroll-behavior:smooth}
+body{margin:0;background:var(--ink);color:var(--text);font-family:var(--f-body);
+  font-size:17px;line-height:1.6;-webkit-font-smoothing:antialiased;overflow-x:hidden}
+::selection{background:var(--amber);color:#14100a}
+.grain,.scan{position:fixed;inset:0;pointer-events:none}
+.grain{opacity:.045;mix-blend-mode:overlay;z-index:9999;
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='200' height='200'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.8' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  animation:grain 1s steps(4) infinite}
+@keyframes grain{0%{transform:translate(0,0)}25%{transform:translate(-3%,2%)}50%{transform:translate(2%,-3%)}75%{transform:translate(-2%,-2%)}100%{transform:translate(0,0)}}
+.scan{opacity:.35;background:repeating-linear-gradient(180deg,rgba(255,255,255,.028) 0 1px,transparent 1px 3px)}
+.mono{font-family:var(--f-mono)}
+.eyebrow{font-family:var(--f-mono);font-size:.66rem;letter-spacing:.3em;text-transform:uppercase;color:var(--amber)}
+a{color:var(--amber-2);text-underline-offset:3px;text-decoration-thickness:1px}
+.casebar{border-bottom:1px solid var(--line);background:var(--ink-2);font-family:var(--f-mono);
+  font-size:.63rem;letter-spacing:.16em;text-transform:uppercase;color:var(--muted-2);
+  display:flex;gap:22px;padding:8px 20px;overflow:hidden;white-space:nowrap}
+.casebar b{color:var(--amber);font-weight:500}
+.casebar .dot{color:var(--good)}
+.nav{position:sticky;top:0;z-index:500;display:flex;align-items:center;justify-content:space-between;
+  gap:18px;padding:14px 22px;background:rgba(10,11,13,.9);backdrop-filter:blur(12px);border-bottom:1px solid var(--line)}
+.brand{display:flex;align-items:center;gap:11px;text-decoration:none;color:var(--text)}
+.brand .mark{width:30px;height:30px;flex:0 0 30px;display:grid;place-items:center;border:1.5px solid var(--amber);
+  color:var(--amber);font-family:var(--f-mono);font-size:.72rem;font-weight:600;background:var(--ink-3)}
+.brand strong{font-family:var(--f-display);font-weight:800;font-size:1.16rem;letter-spacing:-.01em}
+.brand strong i{font-style:normal;color:var(--amber)}
+.navlinks{display:flex;gap:4px;flex-wrap:wrap}
+.navlinks a{font-family:var(--f-mono);font-size:.68rem;letter-spacing:.14em;text-transform:uppercase;
+  color:var(--muted);text-decoration:none;padding:7px 11px;border:1px solid transparent;transition:.16s}
+.navlinks a:hover{color:var(--amber);border-color:var(--line-2);background:var(--ink-3)}
+.navlinks a.ctrl{color:var(--amber);border:1px solid currentColor;padding:5px 11px;border-radius:2px}
+.wrap{max-width:1180px;margin:0 auto;padding:0 22px}
+section{padding:72px 0;border-bottom:1px solid var(--line)}
+.sec-head{margin-bottom:36px;max-width:800px}
+.sec-head h2{font-family:var(--f-display);font-weight:800;letter-spacing:-.028em;
+  font-size:clamp(1.8rem,3.6vw,2.7rem);line-height:1.02;margin:12px 0 14px}
+.sec-head h2 em{font-style:italic;color:var(--amber)}
+.sec-head p{color:var(--muted);margin:0;font-size:1.02rem}
+.btn{display:inline-flex;align-items:center;gap:8px;font-family:var(--f-mono);font-size:.72rem;
+  letter-spacing:.16em;text-transform:uppercase;padding:12px 18px;border:1px solid var(--line-2);
+  background:var(--ink-3);color:var(--text);text-decoration:none;cursor:pointer;transition:.16s;border-radius:2px}
+.btn:hover{border-color:var(--amber);color:var(--amber);transform:translateY(-1px)}
+.btn.solid{background:var(--amber);color:#14100a;border-color:var(--amber);font-weight:600}
+.btn.solid:hover{color:#14100a;filter:brightness(1.08)}
+.hero{padding:64px 0 54px}
+.hero h1{font-family:var(--f-display);font-weight:800;letter-spacing:-.03em;
+  font-size:clamp(2.1rem,5vw,3.6rem);line-height:.98;margin:14px 0 18px}
+.hero h1 em{font-style:italic;color:var(--amber)}
+.lede{color:var(--muted);font-size:1.1rem;max-width:660px}
+.lede b{color:var(--text);font-weight:500}
+.hero-cta{display:flex;gap:10px;flex-wrap:wrap;margin-top:26px}
+.grid{display:grid;gap:18px}
+.grid.two{grid-template-columns:repeat(auto-fit,minmax(300px,1fr))}
+.grid.three{grid-template-columns:repeat(auto-fit,minmax(260px,1fr))}
+.card{border:1px solid var(--line);background:var(--ink-2);padding:24px}
+.card h3{font-family:var(--f-display);font-weight:600;font-size:1.16rem;margin:0 0 8px;letter-spacing:-.01em}
+.card p{color:var(--muted);margin:0;font-size:.96rem}
+.card .num{font-family:var(--f-mono);font-size:.62rem;letter-spacing:.22em;text-transform:uppercase;color:var(--amber);display:block;margin-bottom:10px}
+.pass{border:1px solid var(--line);background:var(--ink-2);padding:26px;position:relative}
+.pass.paid{border-color:var(--amber-dim)}
+.pass h3{font-family:var(--f-display);font-weight:800;font-size:1.4rem;margin:6px 0 4px}
+.pass .fee{font-family:var(--f-display);font-weight:800;font-size:2rem;letter-spacing:-.03em}
+.pass .fee span{font-family:var(--f-mono);font-size:.68rem;letter-spacing:.16em;text-transform:uppercase;color:var(--muted-2);font-weight:400}
+.pass .quota{font-family:var(--f-mono);font-size:.72rem;color:var(--amber);letter-spacing:.1em;text-transform:uppercase}
+.pass dl{margin:18px 0 22px}
+.pass .kv{display:flex;justify-content:space-between;gap:12px;padding:8px 0;border-top:1px solid var(--line);font-size:.86rem}
+.pass .kv b{font-family:var(--f-mono);font-size:.66rem;letter-spacing:.12em;text-transform:uppercase;color:var(--muted-2);font-weight:400}
+.pass .kv span{color:var(--text);text-align:right}
+pre{background:var(--ink-3);border:1px solid var(--line-2);padding:18px;overflow:auto;
+  font-family:var(--f-mono);font-size:.78rem;line-height:1.65;color:#cfe8dd;margin:0}
+pre .c{color:var(--muted-2)}
+pre .k{color:var(--amber)}
+pre .s{color:var(--good)}
+.tabs{display:flex;gap:6px;margin-bottom:0;flex-wrap:wrap}
+.tabs button{font-family:var(--f-mono);font-size:.66rem;letter-spacing:.14em;text-transform:uppercase;
+  background:var(--ink-2);border:1px solid var(--line);border-bottom:none;color:var(--muted);
+  padding:9px 14px;cursor:pointer}
+.tabs button.on{color:var(--amber);border-color:var(--line-2);background:var(--ink-3)}
+.hidden{display:none}
+form{display:grid;gap:14px}
+.field{display:grid;gap:6px}
+.field label{font-family:var(--f-mono);font-size:.64rem;letter-spacing:.16em;text-transform:uppercase;color:var(--muted-2)}
+.field input,.field textarea,.field select{background:var(--ink-3);border:1px solid var(--line-2);
+  color:var(--text);padding:12px;font-family:var(--f-mono);font-size:.84rem;border-radius:2px}
+.field input:focus,.field textarea:focus,.field select:focus{outline:none;border-color:var(--amber)}
+.field textarea{min-height:96px;resize:vertical}
+.hp{position:absolute;left:-9999px;width:1px;height:1px;overflow:hidden}
+.note{border:1px solid var(--line);background:var(--ink-2);padding:16px 18px;font-size:.9rem;color:var(--muted)}
+.note b{color:var(--amber);font-weight:500}
+.result{border:1px solid var(--good);background:rgba(62,207,142,.07);padding:18px;font-size:.92rem}
+.result.err{border-color:var(--stamp);background:rgba(229,72,77,.07)}
+.result .k{font-family:var(--f-mono);color:var(--good);word-break:break-all}
+footer{padding:48px 0 66px;border-top:1px solid var(--line)}
+.foot{display:grid;grid-template-columns:1.4fr 1fr 1fr;gap:26px}
+.foot h5{font-family:var(--f-mono);font-size:.64rem;letter-spacing:.2em;text-transform:uppercase;color:var(--amber);margin:0 0 12px}
+.foot p{color:var(--muted);font-size:.92rem;margin:0}
+.foot ul{list-style:none;margin:0;padding:0;display:grid;gap:8px}
+.foot li a{font-size:.92rem}
+.fine{font-family:var(--f-mono);font-size:.6rem;letter-spacing:.1em;text-transform:uppercase;
+  color:var(--muted-2);margin-top:34px;line-height:1.9}
+@media(max-width:720px){.navlinks{display:none}.foot{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<div class="grain"></div><div class="scan"></div>
+
+<div class="casebar">
+  <span>AUTHCHECK / FOR TEAMS</span>
+  <span class="dot">●</span><span>API v<span id="v">0.5</span></span>
+  <span>LAYERS <b>10</b></span>
+  <span>UPLOADS RETAINED <b>0</b></span>
+  <span style="margin-left:auto">EXPLAINABLE · MULTI-MODAL · SELF-SERVE</span>
+</div>
+
+<nav class="nav">
+  <a class="brand" href="/"><span class="mark">AC</span><strong>Auth<i>Check</i></strong></a>
+  <div class="navlinks">
+    <a href="#why">Why teams</a>
+    <a href="#use">Use cases</a>
+    <a href="#api">API</a>
+    <a href="#pricing">Pricing</a>
+    <a href="#request">Free key</a>
+    <a href="/" >The desk</a>
+    <a href="/panel" class="ctrl">Control Room →</a>
+  </div>
+</nav>
+
+<main>
+<section class="hero" id="top">
+  <div class="wrap">
+    <div class="eyebrow">Exhibit T · For newsrooms, fact-checkers and platform trust teams</div>
+    <h1>Verify content at the speed<br/>your feed moves.</h1>
+    <p class="lede">A fake photo, a cloned voice, a doctored headline — they reach millions before a
+      human opens a tab. AuthCheck is an API that reads the <b>provenance</b>, the <b>metadata</b>,
+      the <b>pixel forensics</b> and the <b>language</b>, and returns a 0–100 trust score
+      <b>with every reason behind it</b>. Not a black box. Not a bare yes or no.</p>
+    <div class="hero-cta">
+      <a class="btn solid" href="#request">Request a free key →</a>
+      <a class="btn" href="#api">See the API</a>
+      <a class="btn" href="/">Try it in the browser</a>
+    </div>
+  </div>
+</section>
+
+<section id="why">
+  <div class="wrap">
+    <div class="sec-head">
+      <div class="eyebrow">Exhibit U · Why teams pick it</div>
+      <h2>Explainable beats <em>confident</em>.</h2>
+      <p>Every other detector gives you a number and asks you to trust it. Editors cannot publish
+        "the model said 87% fake". They need the reasoning — and so does your audit trail.</p>
+    </div>
+    <div class="grid three">
+      <div class="card"><span class="num">01 / Explainable</span>
+        <h3>Reasons, not just a score</h3>
+        <p>Every verdict ships with the signals behind it: a broken C2PA hash, a stripped EXIF block,
+          an ELA hot-spot, forward-bait language. Reviewers can see <em>why</em>, and disagree with it.</p></div>
+      <div class="card"><span class="num">02 / Multi-modal</span>
+        <h3>Image, audio, video and text</h3>
+        <p>One API and one key for all four. Photos, voice notes, clips and written claims — the same
+          score shape, the same header, the same reasons.</p></div>
+      <div class="card"><span class="num">03 / Private by design</span>
+        <h3>Zero upload retention</h3>
+        <p>Analysis happens per request and the file is not stored. Nothing to leak, nothing to
+          subpoena, nothing sitting in a bucket.</p></div>
+      <div class="card"><span class="num">04 / Transparent</span>
+        <h3>Open standards underneath</h3>
+        <p>Built on C2PA Content Credentials and the Google Fact Check Tools, so the output speaks a
+          language your policy team already recognises.</p></div>
+      <div class="card"><span class="num">05 / Honest</span>
+        <h3>It never claims to prove truth</h3>
+        <p>A missing credential is not proof of faking, and a reference hit is not proof of truth.
+          The payload says so out loud. That restraint is the point.</p></div>
+      <div class="card"><span class="num">06 / Cheap to start</span>
+        <h3>Free tier, then ₹99 a month</h3>
+        <p>Test with a free key at 120 checks an hour. When you outgrow it, Starter is ₹99 a month and
+          Pro desk is ₹499. No sales call, no annual contract.</p></div>
+    </div>
+  </div>
+</section>
+
+<section id="use">
+  <div class="wrap">
+    <div class="sec-head">
+      <div class="eyebrow">Exhibit V · Who uses it</div>
+      <h2>Four desks that <em>already</em> need this.</h2>
+    </div>
+    <div class="grid two">
+      <div class="card"><span class="num">Newsroom / fact-check desk</span>
+        <h3>Triage the viral pile</h3>
+        <p>A photo lands in the tipline. Run it through the API before it eats an editor's afternoon:
+          provenance, metadata and ELA in one call, with the reasons attached to the story file.</p></div>
+      <div class="card"><span class="num">Platform / community trust</span>
+        <h3>Score UGC at the edge</h3>
+        <p>Hook the API into your moderation queue and rank posts by risk before a human ever sees
+          them. The Pro desk tier gives you 10,000 checks an hour.</p></div>
+      <div class="card"><span class="num">OSINT / investigations</span>
+        <h3>Keep an evidence trail</h3>
+        <p>Every call returns the signals, so your verification notes write themselves. Ideal when the
+          finding has to survive a lawyer's read.</p></div>
+      <div class="card"><span class="num">Product team</span>
+        <h3>Ship a trust feature</h3>
+        <p>Adding a "verify this" button to your app? Do not build a detector. Call one, and spend your
+          time on the interface instead.</p></div>
+    </div>
+  </div>
+</section>
+
+<section id="api">
+  <div class="wrap">
+    <div class="sec-head">
+      <div class="eyebrow">Exhibit W · The API</div>
+      <h2>Four endpoints. One header. <em>Five minutes.</em></h2>
+      <p>Send your key as an <span class="mono">X-API-Key</span> header. Every metered response also
+        carries <span class="mono">X-RateLimit-Tier</span>, <span class="mono">X-RateLimit-Limit</span>
+        and <span class="mono">X-RateLimit-Remaining</span>.</p>
+    </div>
+
+    <div class="tabs" id="tabs">
+      <button class="on" data-t="curl">curl</button>
+      <button data-t="py">Python</button>
+      <button data-t="js">JavaScript</button>
+    </div>
+
+    <div id="p-curl">
+<pre><span class="c"># check a claim</span>
+curl -H <span class="s">"X-API-Key: ac_your_key"</span> \
+     --data-urlencode <span class="s">"text=Drinking hot water cures every disease"</span> \
+     <span class="k">https://authcheck-u1e8.onrender.com/api/check-text</span>
+
+<span class="c"># check an image</span>
+curl -H <span class="s">"X-API-Key: ac_your_key"</span> \
+     -F <span class="s">"file=@photo.jpg"</span> \
+     <span class="k">https://authcheck-u1e8.onrender.com/api/analyze-image</span>
+
+<span class="c"># audio and video follow the same shape</span>
+curl -H <span class="s">"X-API-Key: ac_your_key"</span> -F <span class="s">"file=@voice.wav"</span> <span class="k">/api/analyze-audio</span>
+curl -H <span class="s">"X-API-Key: ac_your_key"</span> -F <span class="s">"file=@clip.mp4"</span>  <span class="k">/api/analyze-video</span>
+
+<span class="c"># how much quota is left?</span>
+curl -H <span class="s">"X-API-Key: ac_your_key"</span> <span class="k">/api/usage</span></pre>
+    </div>
+
+    <div id="p-py" class="hidden">
+<pre><span class="k">import</span> requests
+
+BASE = <span class="s">"https://authcheck-u1e8.onrender.com"</span>
+HEAD = {<span class="s">"X-API-Key"</span>: <span class="s">"ac_your_key"</span>}
+
+<span class="c"># a written claim</span>
+r = requests.post(<span class="s">f"{BASE}/api/check-text"</span>, headers=HEAD,
+                  data={<span class="s">"text"</span>: <span class="s">"Drinking hot water cures every disease"</span>})
+d = r.json()
+<span class="k">print</span>(d[<span class="s">"score"</span>], d[<span class="s">"verdict"</span>])      <span class="c"># 66 caution</span>
+<span class="k">for</span> f <span class="k">in</span> d[<span class="s">"flags"</span>]: <span class="k">print</span>(f[<span class="s">"text"</span>])  <span class="c"># every reason</span>
+
+<span class="c"># a photo</span>
+<span class="k">with</span> <span class="k">open</span>(<span class="s">"photo.jpg"</span>, <span class="s">"rb"</span>) <span class="k">as</span> fh:
+    r = requests.post(<span class="s">f"{BASE}/api/analyze-image"</span>, headers=HEAD,
+                      files={<span class="s">"file"</span>: fh})
+<span class="k">print</span>(r.json()[<span class="s">"verdict"</span>])</pre>
+    </div>
+
+    <div id="p-js" class="hidden">
+<pre><span class="k">const</span> BASE = <span class="s">"https://authcheck-u1e8.onrender.com"</span>;
+<span class="k">const</span> KEY  = <span class="s">"ac_your_key"</span>;
+
+<span class="c">// a written claim</span>
+<span class="k">const</span> body = <span class="k">new</span> URLSearchParams({
+  text: <span class="s">"Drinking hot water cures every disease"</span>
+});
+<span class="k">const</span> res = <span class="k">await</span> fetch(<span class="s">`${BASE}/api/check-text`</span>, {
+  method: <span class="s">"POST"</span>,
+  headers: { <span class="s">"X-API-Key"</span>: KEY },
+  body
+});
+<span class="k">const</span> d = <span class="k">await</span> res.json();
+console.log(d.score, d.verdict, d.flags);</pre>
+    </div>
+
+    <div class="note" style="margin-top:20px">
+      <b>Sample response</b> — the score, the verdict, and the reasons behind them:
+<pre style="margin-top:12px;border:none;background:transparent;padding:0">{
+  <span class="k">"ok"</span>: true,
+  <span class="k">"score"</span>: 66,
+  <span class="k">"verdict"</span>: <span class="s">"caution"</span>,
+  <span class="k">"flags"</span>: [
+    { <span class="k">"level"</span>: <span class="s">"high"</span>,   <span class="k">"weight"</span>: 22, <span class="k">"text"</span>: <span class="s">"Sensational / forward-bait language: cure"</span> },
+    { <span class="k">"level"</span>: <span class="s">"medium"</span>, <span class="k">"weight"</span>: 12, <span class="k">"text"</span>: <span class="s">"Absolutist words: all"</span> }
+  ]
+}</pre>
+    </div>
+  </div>
+</section>
+
+<section id="pricing">
+  <div class="wrap">
+    <div class="sec-head">
+      <div class="eyebrow">Exhibit X · Access</div>
+      <h2>Start free. <em>Scale</em> when the feed does.</h2>
+      <p>All tiers get all ten layers and the same explanations. The only thing that changes is the
+        hourly quota.</p>
+    </div>
+    <div class="grid three">
+      <div class="pass">
+        <div class="quota">Free</div>
+        <h3>Free</h3>
+        <div class="fee">₹0<span> / forever</span></div>
+        <dl>
+          <div class="kv"><b>Quota</b><span>120 checks / hour</span></div>
+          <div class="kv"><b>Layers</b><span>all ten</span></div>
+          <div class="kv"><b>Key</b><span>does not expire</span></div>
+          <div class="kv"><b>Best for</b><span>evaluating the API</span></div>
+        </dl>
+        <a class="btn solid" href="#request" style="width:100%;justify-content:center">Request a free key</a>
+      </div>
+      <div class="pass paid">
+        <div class="quota">Starter</div>
+        <h3>Starter</h3>
+        <div class="fee">₹99<span> / month</span></div>
+        <dl>
+          <div class="kv"><b>Quota</b><span>2,000 checks / hour</span></div>
+          <div class="kv"><b>Layers</b><span>all ten</span></div>
+          <div class="kv"><b>Key</b><span>30-day, renews in place</span></div>
+          <div class="kv"><b>Best for</b><span>a busy solo desk</span></div>
+        </dl>
+        <a class="btn" href="/#tiers" style="width:100%;justify-content:center">Buy Starter — ₹99/mo</a>
+      </div>
+      <div class="pass paid">
+        <div class="quota">Pro desk</div>
+        <h3>Pro desk</h3>
+        <div class="fee">₹499<span> / month</span></div>
+        <dl>
+          <div class="kv"><b>Quota</b><span>10,000 checks / hour</span></div>
+          <div class="kv"><b>Layers</b><span>all ten</span></div>
+          <div class="kv"><b>Key</b><span>30-day, renews in place</span></div>
+          <div class="kv"><b>Best for</b><span>newsrooms &amp; platforms</span></div>
+        </dl>
+        <a class="btn" href="/#tiers" style="width:100%;justify-content:center">Buy Pro desk — ₹499/mo</a>
+      </div>
+    </div>
+    <div class="note" style="margin-top:22px">
+      <b>Higher volume?</b> If you need more than 10,000 checks an hour, or an on-premise deployment,
+      say so in the form below — we will quote it.
+    </div>
+  </div>
+</section>
+
+<section id="request">
+  <div class="wrap">
+    <div class="sec-head">
+      <div class="eyebrow">Exhibit Y · Request a key</div>
+      <h2>Tell us what you are <em>verifying</em>.</h2>
+      <p>A free key is issued by hand, usually within a day. Tell us the desk and the use case and we
+        will send a key you can call straight away.</p>
+    </div>
+    <div class="grid two" style="align-items:start">
+      <form id="reqForm">
+        <div class="field"><label for="f-name">Your name</label>
+          <input id="f-name" name="name" required placeholder="Priya Sharma"/></div>
+        <div class="field"><label for="f-email">Work email</label>
+          <input id="f-email" name="email" type="email" required placeholder="priya@newsroom.in"/></div>
+        <div class="field"><label for="f-org">Newsroom / organisation</label>
+          <input id="f-org" name="org" placeholder="Optional"/></div>
+        <div class="field"><label for="f-plan">Plan you want</label>
+          <select id="f-plan" name="plan">
+            <option value="free">Free — evaluate the API</option>
+            <option value="starter">Starter — ₹99/month</option>
+            <option value="pro">Pro desk — ₹499/month</option>
+          </select></div>
+        <div class="field"><label for="f-use">What will you verify?</label>
+          <textarea id="f-use" name="use_case" placeholder="e.g. triaging photos sent to our WhatsApp tipline"></textarea></div>
+        <div class="hp" aria-hidden="true">
+          <label for="f-web">Leave this empty</label>
+          <input id="f-web" name="website" tabindex="-1" autocomplete="off"/>
+        </div>
+        <button class="btn solid" type="submit" id="reqBtn" style="justify-content:center">Request the key →</button>
+        <div id="reqOut"></div>
+      </form>
+      <div>
+        <div class="note">
+          <b>What happens next</b>
+          <ol style="margin:12px 0 0;padding-left:18px;color:var(--muted);line-height:1.9">
+            <li>Your request lands in our control room.</li>
+            <li>We mint a key for the tier you asked for.</li>
+            <li>It is emailed to you with the endpoint list.</li>
+          </ol>
+        </div>
+        <div class="note" style="margin-top:14px">
+          <b>No card for the free tier.</b> Free keys do not expire. Paid tiers are billed monthly
+          through Razorpay and the key renews in place, so you never swap credentials.
+        </div>
+        <div class="note" style="margin-top:14px">
+          <b>Rather just try it?</b> The <a href="/">desk</a> runs the same engine in the browser,
+          no key needed.
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+</main>
+
+<footer>
+  <div class="wrap">
+    <div class="foot">
+      <div><h5>AuthCheck for Teams</h5>
+        <p>An explainable content-authenticity API. Built on open standards — C2PA for provenance,
+          Google Fact Check Tools for claims — and on the principle that a verdict without a reason is
+          just another rumour.</p></div>
+      <div><h5>Desk</h5>
+        <ul>
+          <li><a href="/">Run a check</a></li>
+          <li><a href="#api">API reference</a></li>
+          <li><a href="#pricing">Pricing</a></li>
+          <li><a href="#request">Request a free key</a></li>
+        </ul></div>
+      <div><h5>Standards</h5>
+        <ul>
+          <li><a href="https://c2pa.org/" target="_blank" rel="noopener">C2PA</a></li>
+          <li><a href="https://contentauthenticity.org/" target="_blank" rel="noopener">Content Authenticity Initiative</a></li>
+          <li><a href="https://toolbox.google.com/factcheck/explorer" target="_blank" rel="noopener">Google Fact Check Explorer</a></li>
+        </ul></div>
+    </div>
+    <div class="fine">
+      NO TOOL PROVES TRUTH. MISSING CREDENTIALS DO NOT MEAN FAKE. ALWAYS CHECK THE ORIGINAL SOURCE.<br/>
+      Analysis is performed per request; uploaded files are not retained.
+    </div>
+  </div>
+</footer>
+
+<script>
+const $ = (id) => document.getElementById(id);
+
+document.querySelectorAll('#tabs button').forEach(b => b.onclick = () => {
+  document.querySelectorAll('#tabs button').forEach(x => x.classList.remove('on'));
+  b.classList.add('on');
+  ['curl','py','js'].forEach(t => $('p-' + t).classList.toggle('hidden', t !== b.dataset.t));
+});
+
+$('reqForm').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const btn = $('reqBtn'), out = $('reqOut');
+  const original = btn.textContent;
+  btn.disabled = true; btn.textContent = 'Sending…'; out.innerHTML = '';
+  try {
+    const body = new FormData($('reqForm'));
+    const r = await fetch('/api/request-key', { method: 'POST', body });
+    const d = await r.json();
+    if (d.ok) {
+      out.innerHTML = '<div class="result">Request received. We will email a key to ' +
+        '<span class="k">' + ($('f-email').value) + '</span> shortly.</div>';
+      $('reqForm').reset();
+    } else {
+      out.innerHTML = '<div class="result err">' + (d.error || 'Something went wrong.') + '</div>';
+    }
+  } catch (err) {
+    out.innerHTML = '<div class="result err">Network error — please try again.</div>';
+  } finally {
+    btn.disabled = false; btn.textContent = original;
+  }
+});
+
+fetch('/api/health').then(r => r.json()).then(d => { if (d.version) $('v').textContent = d.version; }).catch(() => {});
+</script>
+</body>
+</html>

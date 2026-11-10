@@ -24,6 +24,7 @@ import selftest
 import core
 import keys
 import billing
+import leads
 
 ROOT = Path(__file__).resolve().parent
 STARTED = time.time()
@@ -294,6 +295,40 @@ def billing_overview(pin: str = ""):
         "purchases": billing.recent_purchases(20),
         "checked_at": _now(),
     }
+
+
+@router.get("/panel/api/requests")
+def list_key_requests(pin: str = ""):
+    """Free-key requests captured by the /for-teams page."""
+    if not _authorised(pin):
+        return _denied()
+    return {"ok": True, "requests": leads.list_requests(), "counts": leads.counts(), "checked_at": _now()}
+
+
+@router.post("/panel/api/requests/issue")
+def issue_from_request(request_id: str = Form(...), tier: str = Form(""), days: int = Form(30),
+                       pin: str = Form("")):
+    """Mint a key for a request and mark it issued.
+
+    The form asks for a *plan* (free/starter/pro); keys are minted on a *tier*
+    (free/pro/desk). billing.PLANS holds that mapping, so resolve through it.
+    """
+    if not _authorised(pin):
+        return _denied()
+    wanted = next((r for r in leads.list_requests(500) if r["id"] == request_id), None)
+    if not wanted:
+        return JSONResponse({"ok": False, "error": "unknown request"}, status_code=404)
+
+    chosen_plan = tier or wanted["wanted_tier"]
+    resolved = billing.PLANS.get(chosen_plan, {}).get("tier") or chosen_plan
+    if resolved not in keys.TIERS:
+        return JSONResponse({"ok": False, "error": f"unknown plan: {chosen_plan}"}, status_code=400)
+    if not keys.storage_available():
+        return JSONResponse({"ok": False, "error": "no storage - set AUTHCHECK_DATABASE_URL"}, status_code=503)
+
+    record = keys.create_key(f"lead:{wanted['name']}", resolved, days=days if resolved != "free" else 0)
+    leads.mark_issued(request_id, record["key"])
+    return {"ok": True, "key": record, "tier": resolved, "for": wanted["email"], "issued_at": _now()}
 
 
 @router.post("/panel/api/billing/renew")
