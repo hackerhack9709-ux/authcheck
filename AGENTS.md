@@ -68,3 +68,10 @@ otherwise `auth.js` falls back to a weak hash and shows a warning.
 - Do not add a bundler, framework, or npm runtime dependency.
 - Do not load scripts from a CDN at runtime (the QR lib is vendored for offline use).
 - Do not commit API keys; gateway secrets live only in the user's browser localStorage.
+
+## Deployment (live)
+- GitHub: `hackerhack9709-ux/authcheck`, branch **`paycheck`** (repo `main` is a different app — never merge/push PayCheck there).
+- Render service: `paycheck` → https://paycheck-5amq.onrender.com (Docker, free plan, `paycheck` branch).
+- Env on Render: `RAZORPAY_KEY_ID`, `RAZORPAY_KEY_SECRET`, `PROXY_USER`, `PROXY_PASS`.
+- To redeploy after changes: commit on `master`, then `git push origin master:paycheck`.
+- Razorpay creds currently on the service were leaked (found in a public "brute force" key list) — rotate them in the Razorpay dashboard.
