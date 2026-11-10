@@ -134,6 +134,17 @@ Renewals reuse the same key. A purchase stores a `renew_key`; the panel's
 `fulfil_payment` extends the existing key by 30 days instead of minting a new
 one, so the customer never swaps credentials.
 
+### When the webhook does not arrive
+
+Razorpay only lets you add a webhook by hand in its dashboard, so a paid link can
+sit unfulfilled — the buyer pays and gets nothing. The control room's
+**Payments → Reconcile** button closes that gap: it asks Razorpay which pending
+links are paid and issues the missing keys. The post-payment page also settles
+itself, so a buyer who returns to it is served without any webhook.
+
+Run Reconcile after every billing deploy and check that no purchase is left
+unpaid.
+
 ### Winning teams (free-key requests)
 
 `/for-teams` is the B2B page: the pitch, the use cases, API samples in curl,
@@ -160,7 +171,7 @@ action:
 | Toggle Automation | Turns the daily job on or off |
 | Share Links | Builds WhatsApp / Telegram links and copy text |
 | API Keys | Creates, lists and revokes free/pro/desk API keys |
-| Payments | Razorpay status, plan catalogue and recent purchases |
+| Payments | Razorpay status, plan catalogue, recent purchases, reconcile |
 | Key Requests | Inbound free-key requests from `/for-teams`, issue in one click |
 | Full Status | Routes, files, python version, uptime |
 | Download Everything | Zips the whole project for backup or hand-off |

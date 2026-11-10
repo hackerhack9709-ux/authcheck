@@ -173,6 +173,19 @@ Razorpay's API refuses webhook creation from the CLI (a gateway quirk), so the
 webhook is added once in the dashboard. Everything downstream of it is verified
 end to end against the live service.
 
+Because the webhook is manual, **never assume it fired**. A paid link whose
+webhook is missing strands the buyer: money in, no key. Three layers guard that:
+
+- `billing.payment_link_status(ref)` asks Razorpay what a reference is worth.
+- `billing.reconcile_reference(ref)` / `reconcile_pending()` issue keys for paid
+  references. The control room's **Payments → Reconcile** button runs the sweep.
+- `/billing/status?settle=1` lets the post-payment page settle itself, so a
+  buyer who lands back on it gets a key with no webhook at all.
+
+Fulfilment is idempotent, so a late webhook and a reconcile cannot both mint a
+key for one reference. After any deploy that touches billing, run Reconcile
+once and confirm no purchase is left in `link_created`.
+
 ## Customer acquisition (v0.5)
 
 Two surfaces feed the funnel, and `OUTREACH.md` is the playbook.

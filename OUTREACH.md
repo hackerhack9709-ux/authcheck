@@ -23,6 +23,9 @@ activation before outreach, or you will collect interest and then lose it.
 4. Register the webhook: **Settings → Webhooks**, URL
    `https://authcheck-u1e8.onrender.com/billing/webhook`, event
    `payment_link.paid`, secret = the `RAZORPAY_WEBHOOK_SECRET` already set on Render.
+   Razorpay will not let a script create this, so it must be done by hand. Until
+   it exists, **Payments → Reconcile** in the control room is the safety net: it
+   issues keys for paid links the webhook missed.
 5. Put the live keys on Render and redeploy.
 
 Then test one real ₹99 payment end to end before sending a single email.
