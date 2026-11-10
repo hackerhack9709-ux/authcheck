@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="hi">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<meta name="theme-color" content="#0b1220" />
+<title>पेचेक · PayCheck — UPI भुगतान जाँच</title>
+<link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+<div class="phone">
+  <header class="topbar">
+    <div class="brand">
+      <div class="logo">₹</div>
+      <div class="brand-text">
+        <strong data-i18n="appName">पेचेक</strong>
+        <span data-i18n="tagline">UPI भुगतान जाँच</span>
+      </div>
+    </div>
+    <div class="topbar-actions">
+      <button class="lang-btn" id="langBtn" type="button" title="भाषा बदलें / Change language">EN</button>
+      <button class="icon-btn" id="resetBtn" type="button" title="डेमो डेटा रीसेट">⟳</button>
+    </div>
+  </header>
+
+  <main id="view" class="view"><!-- views render here --></main>
+
+  <nav class="tabbar">
+    <button class="tab active" data-tab="tx" type="button">
+      <span class="tab-ico">🧾</span><span data-i18n="tabTx">लेन-देन</span>
+    </button>
+    <button class="tab" data-tab="add" type="button">
+      <span class="tab-ico">➕</span><span data-i18n="tabAdd">जोड़ें</span>
+    </button>
+    <button class="tab" data-tab="verify" type="button">
+      <span class="tab-ico">🛡️</span><span data-i18n="tabVerify">जाँचें</span>
+    </button>
+    <button class="tab" data-tab="qr" type="button">
+      <span class="tab-ico">▦</span><span data-i18n="tabQr">QR</span>
+    </button>
+  </nav>
+</div>
+
+<div id="toast" class="toast" role="status" aria-live="polite"></div>
+
+<script src="vendor/qrcode.min.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
