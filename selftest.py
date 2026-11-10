@@ -252,6 +252,8 @@ def run_checks() -> tuple[bool, list[dict]]:
     after = next(r for r in leads.list_requests(50) if r["id"] == made["id"])
     check("issued request keeps its key", after["status"], "issued")
     check("issuing drops the new count", leads.counts()["new"], before - 1)
+    check("a spam request can be deleted", leads.delete_request(unknown_plan["id"]), True)
+    check("deleting an unknown request is a no-op", leads.delete_request("nope"), False)
 
     # plan names must resolve to real key tiers, or the panel would 400
     check("starter plan maps to a real tier", billing.PLANS["starter"]["tier"] in keys.TIERS, True)

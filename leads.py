@@ -112,6 +112,13 @@ def mark_issued(request_id: str, key: str) -> bool:
     return cur.rowcount > 0
 
 
+def delete_request(request_id: str) -> bool:
+    """Drop a request — used to clear spam that reaches the public form."""
+    with _lock_guard, _connect() as conn:
+        cur = conn.execute("DELETE FROM key_requests WHERE id = ?", (request_id,))
+    return cur.rowcount > 0
+
+
 def counts() -> dict:
     rows = list_requests(limit=500)
     return {

@@ -458,6 +458,7 @@ async function renderLeads(){
       ${issued
         ? `<span class="small">issued · ${esc((r.issued_key||'').slice(0,12))}…</span>`
         : `<button class="small" onclick="issueLead('${esc(r.id)}')">Issue key</button>`}
+      <button class="small" onclick="deleteLead('${esc(r.id)}')">Delete</button>
     </div>`;
   }).join('') || '<div class="small">No requests yet. Send people to /for-teams.</div>';
   const h = `<div class="small" style="margin-bottom:10px">${d.counts.new} new · ${d.counts.total} total</div>
@@ -474,6 +475,13 @@ async function issueLead(id){
   card('Key issued', stamp(), `<div class="small">Tier <b>${esc(d.tier)}</b> for ${esc(d.for)}. Email it to them.</div>
     <pre>${esc(d.key.key)}</pre>
     <button class="small" onclick="copyKey('${esc(d.key.key)}')">Copy key</button>`, 'ok');
+  renderLeads();
+}
+async function deleteLead(id){
+  if (!confirm('Delete this request? Use this to clear spam.')) return;
+  const fd = new FormData(); fd.append('request_id', id); fd.append('pin', pin());
+  const d = await post('/panel/api/requests/delete', fd);
+  card('Delete request', stamp(), d.ok ? 'Request deleted.' : esc(d.error || 'failed'), d.ok ? 'ok' : 'err');
   renderLeads();
 }
 $('bLeads').onclick = async () => {

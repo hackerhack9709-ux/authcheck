@@ -331,6 +331,14 @@ def issue_from_request(request_id: str = Form(...), tier: str = Form(""), days: 
     return {"ok": True, "key": record, "tier": resolved, "for": wanted["email"], "issued_at": _now()}
 
 
+@router.post("/panel/api/requests/delete")
+def delete_key_request(request_id: str = Form(...), pin: str = Form("")):
+    """Clear a request — the form is public, so spam will reach it eventually."""
+    if not _authorised(pin):
+        return _denied()
+    return {"ok": leads.delete_request(request_id), "deleted_at": _now()}
+
+
 @router.post("/panel/api/billing/renew")
 def billing_renew_link(renew_key: str = Form(...), pin: str = Form("")):
     """Mint a Razorpay renewal link for an existing subscription."""
