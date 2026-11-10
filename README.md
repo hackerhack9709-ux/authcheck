@@ -4,6 +4,8 @@ A free, explainable authenticity desk. Give it an **image**, a **video**, an
 **audio clip**, or a **claim**, and it returns a trust score **with every reason
 behind it** — never a bare yes or no.
 
+Built and maintained by **Aarav**.
+
 ## Why
 
 Anyone can now generate a convincing fake photo, voice note or headline.

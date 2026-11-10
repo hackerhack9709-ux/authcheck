@@ -2,6 +2,12 @@
 
 Repo memory for future sessions. Keep it short and current.
 
+## Owner
+
+Built and maintained by **Aarav**. The control room, the Razorpay account and
+the deploy all belong to him. Commits are authored as `Aarav
+<aarav@users.noreply.github.com>`.
+
 ## What this is
 
 A free, explainable content-authenticity desk. Give it an image, an audio clip

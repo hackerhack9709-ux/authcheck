@@ -20,6 +20,7 @@ import os
 import sys
 import tempfile
 import urllib.request
+import uuid
 import wave
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
@@ -268,6 +269,14 @@ def run_checks() -> tuple[bool, list[dict]]:
     check("reconcile sweep reports ok", swept.get("ok"), True)
     check("a fulfilled purchase is not swept again",
           any(s["reference"] == ref for s in swept["settled"]), False)
+
+    # the public request form is spam-exposed; its throttle must actually bite
+    gate_bucket = f"lead:selftest:{uuid.uuid4().hex[:6]}"
+    allowed = [keys.check_rate(gate_bucket, "anonymous", limit_override=5)["allowed"] for _ in range(7)]
+    check("lead throttle allows the first five", allowed[:5], [True] * 5)
+    check("lead throttle blocks the sixth", allowed[5:], [False, False])
+    check("the lead throttle is per bucket",
+          keys.check_rate(f"lead:other:{uuid.uuid4().hex[:6]}", "anonymous", limit_override=5)["allowed"], True)
 
     passed = all(c["ok"] for c in CHECKS)
     return passed, CHECKS

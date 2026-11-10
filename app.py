@@ -190,6 +190,7 @@ def api_plans():
 
 @app.post("/api/request-key")
 async def request_key(
+    request: Request,
     name: str = Form(...),
     email: str = Form(...),
     org: str = Form(""),
@@ -200,10 +201,17 @@ async def request_key(
     """Capture a free-key request from the /for-teams page.
 
     `website` is a honeypot: it is hidden in the form, so a value means a bot.
-    Nothing is issued here — an operator reviews the list and mints a key.
+    Nothing is issued here — an operator reviews the list and mints a key. The
+    form is public, so a per-IP throttle keeps one script from filling the list.
     """
     if website.strip():
         return {"ok": True, "queued": True, "note": "thanks"}
+    gate = keys.check_rate(f"lead:{_client_ip(request)}", "anonymous", limit_override=5)
+    if not gate["allowed"]:
+        return JSONResponse(
+            {"ok": False, "error": "too many requests — try again later"},
+            status_code=429,
+        )
     return leads.create_request(name, email, org=org, use_case=use_case, wanted_tier=plan)
 
 

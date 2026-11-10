@@ -265,9 +265,9 @@ def is_metered(path: str) -> bool:
     return any(path.startswith(p) for p in METERED_PREFIXES)
 
 
-def check_rate(bucket: str, tier: str) -> dict:
+def check_rate(bucket: str, tier: str, limit_override: int | None = None) -> dict:
     """Sliding one-hour window. Returns allowed/limit/remaining/reset."""
-    limit = TIERS.get(tier, TIERS["anonymous"])["limit"]
+    limit = limit_override or TIERS.get(tier, TIERS["anonymous"])["limit"]
     now = time.time()
     with _lock:
         hits = [t for t in _buckets.get(bucket, []) if now - t < 3600]

@@ -3,11 +3,12 @@
 Everything needed to get the first paying customers for AuthCheck. Work top to
 bottom: fix the blocker, get ten free keys out, then ask for money.
 
+Owner: **Aarav**.
 Live product: <https://authcheck-u1e8.onrender.com>
 Teams page to send people to: <https://authcheck-u1e8.onrender.com/for-teams>
 
-> Written for whoever picks this up next. Replace the bracketed placeholders
-> (`[your name]`, `[email]`) before sending anything.
+> Send from Aarav's name. Replace the bracketed placeholders (`[your name]`,
+> `[email]`) with his before sending anything.
 
 ---
 
