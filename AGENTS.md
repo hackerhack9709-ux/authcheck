@@ -1,50 +1,57 @@
-# AGENTS.md — PayCheck (पेचेक)
+# AGENTS.md — PayCheck
 
 Repository-specific notes for AI agents working in this codebase.
 
 ## What this is
 A single-page, dependency-light **static web app** (no build step, no backend, no framework).
 It is a UPI payment-verification helper for shopkeepers, inspired by an anti-fraud Instagram reel
-("Payment pehle check kare, phir maal de" / "ऑनलाइन धोखाधड़ी से सावधान").
+("Check the payment first, then hand over the goods").
 
 ## Layout
 ```
-index.html          shell: topbar, <main id="view">, bottom tabbar
-styles.css          dark UPI-style theme; CSS variables in :root
-app.js              everything: i18n, state, views, verification logic, QR
-vendor/qrcode.min.js  qrcode-generator 1.4.4 (vendored locally; global `qrcode`)
-README.md           user-facing docs (Hindi + English)
+index.html            shell: auth screen, topbar, <main id="view">, 5-tab bottom bar
+styles.css            dark UPI-style theme; CSS variables in :root
+auth.js               window.Auth  — accounts, PBKDF2 hashing, session, per-user data keys
+gateway.js            window.Gateway — payment verification adapter (sandbox + live)
+share.js              window.Share — WhatsApp / native share / clipboard
+app.js                everything else: i18n, state, views, verification logic, QR
+vendor/qrcode.min.js  qrcode-generator 1.4.4 (vendored; global `qrcode`)
 ```
 
 ## Run / verify
 ```bash
 python3 -m http.server 12000     # then open http://localhost:12000
-node --check app.js              # syntax check (no test suite exists)
+for f in app.js auth.js gateway.js share.js; do node --check $f; done
 ```
 There is **no automated test suite**. Verify changes by loading the page and exercising the
-four tabs. Preview hosts: see `work_hosts` (ports 12000 / 12001).
+five tabs. Preview hosts: see `work_hosts` (ports 12000 / 12001).
+
+Important: Web Crypto (`crypto.subtle`) only exists in a secure context. Use `localhost` or https,
+otherwise `auth.js` falls back to a weak hash and shows a warning.
 
 ## Conventions
-- Vanilla ES2018+ in a single IIFE in `app.js`. No modules, no bundler, no npm deps at runtime.
-- DOM is built with the small helpers `el(tag, cls, html)`, `$(sel, root)`, `esc()`.
-  **Always `esc()` user/data strings** before injecting into `innerHTML`.
-- All user-visible strings live in the `I18N` object under `hi` and `en`. When adding UI text,
-  add keys to **both** locales and reference via `T().key`. The `data-i18n` attribute on static
-  HTML nodes is synced on each render.
-- State lives in the `state` object; `render()` re-renders the active view from scratch.
-  Transaction data persists in `localStorage` under `paycheck.txns.v1`.
-- Views are functions `viewTx / viewAdd / viewVerify / viewQr` registered in the `VIEWS` map.
-- Keep the transaction list re-render cheap: search typing calls `txnList()` and swaps only the
-  `#txn-list` node instead of a full `render()`.
+- Vanilla ES2018+ IIFEs. No modules, no bundler, no npm runtime dependency.
+- DOM helpers: `el(tag, cls, html)`, `$(sel, root)`, `$$`, `esc()`. **Always `esc()` data** before
+  injecting into `innerHTML`.
+- All user-visible strings live in `I18N` under `en` (default) and `hi`. Add keys to **both**
+  locales and reference via `T().key`. Static nodes use `data-i18n` and are synced each render.
+- State lives in `state`; `render()` re-renders the active view. Views are `viewTx / viewAdd /
+  viewVerify / viewQr / viewSettings` in the `VIEWS` map.
+- Search typing swaps only the `#txn-list` node, not a full `render()`.
+- Storage keys are scoped per user via `Auth.dataKey(base, userId)`. Never read a business-data
+  key without a user id.
+- `load()` reads the signed-in user's transactions (falling back to `seed()`), QR draft, and meta.
 
 ## Domain notes
-- UPI VPA format is validated by `VPA_RE` (`local@handle`).
-- `runChecks()` returns `{verdict: 'ok'|'pend'|'bad', advice, checks[]}`. Verdict is `bad` if any
-  check is `bad`, else `pend` if any is `warn`, else `ok`.
+- `runChecks(input)` returns `{checks[]}` (local record checks). `verdictFor(checks, gw)` combines
+  them with a gateway result into `{verdict: 'ok'|'pend'|'bad', advice}`.
+- Gateway results are normalised to `SUCCESS | PENDING | FAILED | NOT_FOUND | UNKNOWN` by
+  `Gateway.normaliseStatus`, with field extraction via `Gateway.pick`.
 - `buildUpi()` produces `upi://pay?pa=..&pn=..&am=..&cu=INR&tn=..`.
-- This app never contacts a real bank/UPI server — it only reasons over local records. Any change
-  that implies real payment confirmation must keep the "confirm in your bank app" disclaimer.
+- This app never contacts a real bank unless the user configures a live endpoint in Settings.
+  Any change implying real payment confirmation must keep the "confirm in your bank app" advice.
 
 ## Do not
-- Do not add a bundler, framework, or npm runtime dependency; the project must stay open-and-run.
-- Do not load scripts from a CDN at runtime (the QR lib is vendored for offline/air-gapped use).
+- Do not add a bundler, framework, or npm runtime dependency.
+- Do not load scripts from a CDN at runtime (the QR lib is vendored for offline use).
+- Do not commit API keys; gateway secrets live only in the user's browser localStorage.

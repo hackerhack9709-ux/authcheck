@@ -1,71 +1,71 @@
-# पेचेक · PayCheck — UPI भुगतान जाँच ऐप
+# PayCheck — UPI payment verification app
 
-एक छोटा, मोबाइल-फ़र्स्ट वेब ऐप जो दुकानदार/व्यापारी को **सामान देने से पहले भुगतान जाँचने** में मदद करता है।
-यह उस रील से प्रेरित है जिसमें लिखा था — *“Payment pehle check kare, phir is ladke ko maal de”* और
-ऊपर लाल पट्टी में *“ऑनलाइन धोखाधड़ी से सावधान”*।
+A mobile-first web app that helps a shopkeeper **verify a payment before handing over the goods**.
+Inspired by the anti-fraud reel: *"Check the payment first, then hand over the goods."*
 
-## समस्या (जो रील में दिखी)
+No build step. No backend. Vanilla HTML + CSS + JS.
 
-रील में एक UPI/मर्चेंट ऐप की **transaction history** स्क्रीन दिखाई गई थी:
-
-- सर्च बार: `Search transactions`
-- फ़िल्टर: `Status`, `Payment method`, `Date`
-- नवंबर का कुल: `₹736.54`
-- लेन-देन: `Snapdeal Private Limited`, `Google Pay Merchant`, `Saif Sayeed`, `Phonepemerchant`,
-  `Samreen`, `Nadeem Sarwar`, `Akash Kanaujlya`, `Unsupported QR Code`, `Prince`, `Paytm`,
-  `Rizwan`, `Mohammad Shariq`, `Gurjan Sharma`
-
-साथ में ओवरले टेक्स्ट: **पैसा पहले चेक करें, फिर सामान दें।**
-ऐसे ही एक UPI-जाँच ऐप बनाना इस प्रोजेक्ट का लक्ष्य है।
-
-## फ़ीचर्स
-
-| टैब | काम |
-|-----|-----|
-| **लेन-देन** | राशि-सारांश, खोज (नाम / UPI ID / रकम / UTR), स्थिति-फ़िल्टर, तारीख़/तरीक़ा फ़िल्टर, तारीख़-वार समूह, विवरण मोडल, हटाना |
-| **जोड़ें** | नया भुगतान मैन्युअली रिकॉर्ड करें (नाम, UPI ID, रकम, तरीक़ा, स्थिति, UTR, नोट) |
-| **जाँचें** | भुगतान जोखिम-जाँच — सुरक्षित / सावधानी / खतरा, और “सामान दें या न दें” की सलाह |
-| **QR** | अपना UPI ID + रकम डालकर असली **UPI QR** बनाएँ (ग्राहक स्कैन करेगा) |
-
-अतिरिक्त: हिंदी/English टॉगल, localStorage में डेटा सुरक्षित, रिस्पॉन्सिव लेआउट, बिना इंटरनेट/बैकएंड।
-
-## जाँच (Verify) कैसे काम करती है
-
-`runChecks()` ये नियम लगाता है:
-
-- UPI ID का प्रारूप (`name@bank`) सही है या नहीं
-- पहले इस व्यक्ति से सफल भुगतान मिला है (जाना-पहचाना) या नया है
-- पहले का कोई भुगतान असफल / `Unsupported QR` था या नहीं
-- रकम बड़ी है (≥ ₹5,000) या गोल है (₹500 के गुणक) — फ़र्ज़ी स्क्रीनशॉट आम हैं
-- वही रकम कुछ देर पहले ही मिल चुकी है (दोहराव)
-- UTR 12 अंकों का है या नहीं
-
-नतीजा: **हरा (सुरक्षित)** → सामान दे सकते हैं · **पीला (सावधानी)** → बैंक ऐप में पुष्टि करें ·
-**लाल (खतरा)** → सामान न दें।
-
-> यह ऐप असली बैंक/UPI सर्वर से नहीं जुड़ता। यह एक डेमो है जो **आपके ही रिकॉर्ड** के आधार पर सलाह देता है।
-> असली पुष्टि हमेशा अपने बैंक ऐप में ही करें।
-
-## चलाएँ
-
-कोई बिल्ड स्टेप नहीं — बस फ़ाइलें सर्व करें:
+## Run it
 
 ```bash
 python3 -m http.server 12000
-# फिर खोलें: http://localhost:12000
+# open http://localhost:12000
 ```
 
-या किसी भी स्टैटिक सर्वर से (`npx serve`, `php -S`, आदि)।
+Sign in with the demo account (`demo@paycheck.app` / `demo1234`) or create your own.
 
-## फ़ाइलें
+> Passwords are hashed with PBKDF2-SHA256 via Web Crypto. This is a **client-side demo**:
+> it isolates each user's local data on a shared device. It is not server-grade security.
+
+## Tabs
+
+| Tab | What it does |
+|-----|--------------|
+| **Payments** | Summary totals, search, status/method/date filters, day grouping, detail modal, delete |
+| **Add** | Record a payment manually |
+| **Verify** | Risk check + live payment-gateway check → Safe / Caution / Danger, with WhatsApp sharing |
+| **QR** | Generate a real UPI collect QR (`upi://pay?...`) and send the request on WhatsApp |
+| **Settings** | Merchant profile, gateway config, password/PIN, export/import, demo reset |
+
+## How verification works
+
+Two independent layers:
+
+1. **Your records** — UPI ID format, known vs new payer, duplicate amount, large/round amount,
+   past failed payments, UTR format (12 digits).
+2. **Payment gateway** — `gateway.js` calls your verification endpoint and normalises the response.
+
+Final verdict: `SUCCESS` clears the record warnings; `FAILED`/`NOT_FOUND` forces **Danger**;
+`PENDING`/`UNKNOWN` keeps it at **Caution**.
+
+### Gateway modes
+
+- **Sandbox** (default) — offline deterministic simulator, no network. The badge on the Verify tab
+  shows which mode is active.
+- **Live** — set your endpoint URL, API key, auth style (`bearer` / `x-api-key` / `query`) and
+  timeout in **Settings**. The app POSTs:
+
+```json
+{ "payee": "...", "vpa": "...", "amount": 2000, "utr": "402730210114", "date": "2026-11-10" }
+```
+
+and reads back any common shape (`status` / `state` / `paymentStatus` / `result` / `code`,
+plus `referenceId`, `utr`, `payerName`, `amount`, `bank`, ...).
+
+No credentials ship with the app. Yours are stored only in this browser.
+
+## Files
 
 ```
-index.html      # शेल + टैब बार
-styles.css      # डार्क UPI-स्टाइल UI
-app.js          # पूरा लॉजिक (i18n, state, views, verification)
-vendor/qrcode.min.js  # QR बनाने की लाइब्रेरी (लोकल, कोई CDN नहीं)
+index.html            shell: auth screen, topbar, 5-tab bar
+styles.css            dark UPI-style theme
+auth.js               accounts + session (PBKDF2), per-user data scoping
+gateway.js            payment verification adapter (sandbox + live)
+share.js              WhatsApp / native share / clipboard helpers
+app.js                i18n (English + Hindi), state, views, verification logic
+vendor/qrcode.min.js  QR generator (local, no CDN)
 ```
 
-## डेमो डेटा रीसेट
+## Language
 
-टॉप-बार के `⟳` बटन से डेमो लेन-देन फिर से लोड हो जाते हैं।
+English is the default. The `हिं` button in the top bar switches to Hindi.

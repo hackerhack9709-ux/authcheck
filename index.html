@@ -1,25 +1,85 @@
 <!DOCTYPE html>
-<html lang="hi">
+<html lang="en">
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
 <meta name="theme-color" content="#0b1220" />
-<title>पेचेक · PayCheck — UPI भुगतान जाँच</title>
+<title>PayCheck — verify a UPI payment before you hand over goods</title>
 <link rel="stylesheet" href="styles.css" />
 </head>
 <body>
-<div class="phone">
+
+<!-- ============================ AUTH SCREEN ============================ -->
+<section id="authScreen" class="auth-screen">
+  <div class="auth-wrap">
+    <div class="auth-hero">
+      <div class="logo big">₹</div>
+      <h1>PayCheck</h1>
+      <p class="auth-tagline" data-i18n="authTagline">
+        Verify the payment before you hand over the goods.
+      </p>
+      <ul class="auth-points">
+        <li data-i18n="authPoint1">Track every UPI payment you receive</li>
+        <li data-i18n="authPoint2">Check a payer against your own records</li>
+        <li data-i18n="authPoint3">Generate a UPI QR to collect money</li>
+      </ul>
+    </div>
+
+    <div class="auth-card">
+      <div class="seg" id="authSeg">
+        <button class="seg-btn active" data-auth="signin" type="button" data-i18n="signIn">Sign in</button>
+        <button class="seg-btn" data-auth="signup" type="button" data-i18n="signUp">Create account</button>
+      </div>
+
+      <form id="authForm" autocomplete="on">
+        <div class="field" id="fName" hidden>
+          <label data-i18n="fName">Your name</label>
+          <input id="auName" autocomplete="name" placeholder="Ramesh Kumar" />
+        </div>
+        <div class="field" id="fShop" hidden>
+          <label data-i18n="fShop">Shop / business name</label>
+          <input id="auShop" placeholder="Ramesh General Store" />
+        </div>
+        <div class="field">
+          <label data-i18n="fEmail">Email</label>
+          <input id="auEmail" type="email" autocomplete="username" placeholder="you@example.com" required />
+        </div>
+        <div class="field">
+          <label data-i18n="fPassword">Password</label>
+          <input id="auPass" type="password" autocomplete="current-password" placeholder="••••••••" required />
+          <div class="hint" id="passHint" hidden data-i18n="passHint">At least 8 characters.</div>
+        </div>
+        <div class="field" id="fPin" hidden>
+          <label data-i18n="fPin">App PIN (optional, 4–6 digits)</label>
+          <input id="auPin" inputmode="numeric" maxlength="6" placeholder="1234" />
+          <div class="hint" data-i18n="pinHint">Quick unlock next time. You can skip this.</div>
+        </div>
+        <div class="auth-error" id="authError" hidden></div>
+        <button class="btn" id="authSubmit" type="submit" data-i18n="signIn">Sign in</button>
+      </form>
+
+      <button class="btn ghost sm" id="demoBtn" type="button" data-i18n="useDemo">
+        Use the demo account
+      </button>
+      <p class="auth-note" id="cryptoNote" hidden></p>
+    </div>
+  </div>
+</section>
+
+<!-- ============================= MAIN APP ============================= -->
+<div class="phone" id="mainScreen" hidden>
   <header class="topbar">
     <div class="brand">
       <div class="logo">₹</div>
       <div class="brand-text">
-        <strong data-i18n="appName">पेचेक</strong>
-        <span data-i18n="tagline">UPI भुगतान जाँच</span>
+        <strong data-i18n="appName">PayCheck</strong>
+        <span id="shopName" data-i18n="tagline">UPI payment verifier</span>
       </div>
     </div>
     <div class="topbar-actions">
-      <button class="lang-btn" id="langBtn" type="button" title="भाषा बदलें / Change language">EN</button>
-      <button class="icon-btn" id="resetBtn" type="button" title="डेमो डेटा रीसेट">⟳</button>
+      <button class="lang-btn" id="langBtn" type="button" title="Change language">हिं</button>
+      <button class="user-chip" id="userChip" type="button" title="Account"></button>
+      <button class="icon-btn" id="logoutBtn" type="button" title="Sign out">⎋</button>
     </div>
   </header>
 
@@ -27,23 +87,30 @@
 
   <nav class="tabbar">
     <button class="tab active" data-tab="tx" type="button">
-      <span class="tab-ico">🧾</span><span data-i18n="tabTx">लेन-देन</span>
+      <span class="tab-ico">🧾</span><span data-i18n="tabTx">Payments</span>
     </button>
     <button class="tab" data-tab="add" type="button">
-      <span class="tab-ico">➕</span><span data-i18n="tabAdd">जोड़ें</span>
+      <span class="tab-ico">➕</span><span data-i18n="tabAdd">Add</span>
     </button>
     <button class="tab" data-tab="verify" type="button">
-      <span class="tab-ico">🛡️</span><span data-i18n="tabVerify">जाँचें</span>
+      <span class="tab-ico">🛡️</span><span data-i18n="tabVerify">Verify</span>
     </button>
     <button class="tab" data-tab="qr" type="button">
       <span class="tab-ico">▦</span><span data-i18n="tabQr">QR</span>
+    </button>
+    <button class="tab" data-tab="settings" type="button">
+      <span class="tab-ico">⚙️</span><span data-i18n="tabSettings">Settings</span>
     </button>
   </nav>
 </div>
 
 <div id="toast" class="toast" role="status" aria-live="polite"></div>
+<div id="modalHost"></div>
 
 <script src="vendor/qrcode.min.js"></script>
+<script src="auth.js"></script>
+<script src="gateway.js"></script>
+<script src="share.js"></script>
 <script src="app.js"></script>
 </body>
 </html>
