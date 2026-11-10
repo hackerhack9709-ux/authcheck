@@ -75,3 +75,14 @@ otherwise `auth.js` falls back to a weak hash and shows a warning.
 - Env on Render: `RAZORPAY_KEY_ID`, `RAZORPAY_KEY_SECRET`, `PROXY_USER`, `PROXY_PASS`.
 - To redeploy after changes: commit on `master`, then `git push origin master:paycheck`.
 - Razorpay creds currently on the service were leaked (found in a public "brute force" key list) — rotate them in the Razorpay dashboard.
+
+## Security hardening (2026-11)
+- The static server serves an **allowlist** (`PUBLIC_FILES` in `server/razorpay-verify.js`).
+  Previously it served any file under `ROOT`, so `/.env` (Razorpay secret + proxy password),
+  `/.git/`, `/server/` source and docs were readable over HTTP. When adding a new asset, add
+  its path to `PUBLIC_FILES` or it will 404.
+- `index.html` and `sw.js` are sent with `Cache-Control: no-cache`; other assets use a 5-min max-age.
+- `sw.js` is **network-first** (cache is only an offline fallback). A stale-while-revalidate cache
+  kept serving the previous `app.js` for one extra load after a deploy.
+- `buildUpi()` keeps `@` literal and encodes spaces as `%20` (not `%40`/`+`) — some UPI apps
+  fail to parse the percent-encoded forms.
