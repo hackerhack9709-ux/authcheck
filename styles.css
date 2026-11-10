@@ -352,3 +352,6 @@ body{
   .auth-tagline{max-width:40ch;font-size:15px}
   .auth-points li{font-size:13.5px}
 }
+
+/* The hidden attribute must win over layout display rules. */
+[hidden]{display:none !important}
