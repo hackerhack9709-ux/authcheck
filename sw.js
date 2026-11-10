@@ -1,7 +1,12 @@
 /* PayCheck service worker — offline shell.
-   Caches the app shell so the app opens without a network.
-   Never caches gateway API calls; those must always be live. */
-const CACHE = 'paycheck-v2';
+   Keeps a copy of the app shell so the app still opens without a network.
+   Gateway API calls are never cached; those must always be live.
+
+   Strategy: network-first for the shell. The cached copy is only a fallback
+   when the network is unavailable. A stale-while-revalidate cache would keep
+   serving the previous app.js after a deploy, so a bug fix could take two
+   loads to reach users — unacceptable for a payment tool. */
+const CACHE = 'paycheck-v3';
 const SHELL = [
   './',
   './index.html',
@@ -38,20 +43,17 @@ self.addEventListener('fetch', (e) => {
   // Only handle same-origin shell assets. Gateway endpoints go straight to the network.
   if (url.origin !== self.location.origin) return;
 
-  // Stale-while-revalidate: serve the cached copy at once, then refresh it in
-  // the background so the next load picks up a new deploy without a hard refresh.
+  // Network-first: always try the network so a fresh deploy is picked up
+  // immediately. Fall back to the cache (then the shell) only when offline.
   e.respondWith(
-    caches.match(request).then((hit) => {
-      const network = fetch(request)
-        .then((res) => {
-          if (res && res.ok && res.type === 'basic') {
-            const copy = res.clone();
-            caches.open(CACHE).then((c) => c.put(request, copy));
-          }
-          return res;
-        })
-        .catch(() => hit || caches.match('./index.html'));
-      return hit || network;
-    })
+    fetch(request)
+      .then((res) => {
+        if (res && res.ok && res.type === 'basic') {
+          const copy = res.clone();
+          caches.open(CACHE).then((c) => c.put(request, copy));
+        }
+        return res;
+      })
+      .catch(() => caches.match(request).then((hit) => hit || caches.match('./index.html')))
   );
 });
