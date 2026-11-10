@@ -274,16 +274,35 @@ def revoke_api_key(key: str = Form(...), pin: str = Form("")):
     return {"ok": keys.revoke_key(key), "revoked_at": _now()}
 
 
+@router.post("/panel/api/keys/renew")
+def renew_api_key(key: str = Form(...), days: int = Form(30), pin: str = Form("")):
+    if not _authorised(pin):
+        return _denied()
+    expires = keys.extend_key(key, days)
+    if not expires:
+        return JSONResponse({"ok": False, "error": "key not found or bad period"}, status_code=404)
+    return {"ok": True, "expires_at": expires, "renewed_at": _now()}
+
+
 @router.get("/panel/api/billing")
 def billing_overview(pin: str = ""):
     if not _authorised(pin):
         return _denied()
     return {
         "ok": True,
-        "billing": billing.billing_summary(),
+        "billing": {**billing.billing_summary(), "expiring_soon": billing.expiring_soon(7)},
         "purchases": billing.recent_purchases(20),
         "checked_at": _now(),
     }
+
+
+@router.post("/panel/api/billing/renew")
+def billing_renew_link(renew_key: str = Form(...), pin: str = Form("")):
+    """Mint a Razorpay renewal link for an existing subscription."""
+    if not _authorised(pin):
+        return _denied()
+    base = os.environ.get("AUTHCHECK_PUBLIC_URL", "").strip()
+    return billing.create_renewal_link(renew_key, base_url=base)
 
 
 @router.post("/panel/api/billing/issue")

@@ -333,13 +333,17 @@ $('bShare').onclick = async () => {
 async function renderKeys(){
   const d = await get('/panel/api/keys?pin=' + encodeURIComponent(pin()));
   if (!d.ok){ card('API Keys', stamp(), esc(d.error || 'failed'), 'err'); return; }
-  const rows = (d.keys||[]).map(k => `<div class="row" style="padding:8px 0;border:0">
+  const rows = (d.keys||[]).map(k => {
+    const exp = k.expires_at ? `expires ${k.expires_at.slice(0,10)}${k.expired ? ' (lapsed)' : ''}` : 'no expiry';
+    return `<div class="row" style="padding:8px 0;border:0">
       <span class="mono" style="flex:1">${esc(k.masked)}</span>
-      <span class="small">${esc(k.tier)} · ${k.requests} reqs</span>
+      <span class="small">${esc(k.tier)} · ${k.requests} reqs · ${esc(exp)}</span>
       <button class="small" onclick="copyKey('${esc(k.key)}')">Copy</button>
+      ${k.tier !== 'free' && !k.revoked ? `<button class="small" onclick="renewKey('${esc(k.key)}')">Renew +30d</button>` : ''}
       ${k.revoked ? '<span class="small">revoked</span>'
         : `<button class="small" onclick="revokeKey('${esc(k.key)}')">Revoke</button>`}
-    </div>`).join('') || '<div class="small">No keys yet. Create one below.</div>';
+    </div>`;
+  }).join('') || '<div class="small">No keys yet. Create one below.</div>';
   const h = `<div class="small" style="margin-bottom:10px">Storage: ${esc(d.usage.storage)} · ${d.usage.keys_in_use} key(s) used this run</div>
     ${rows}
     <div class="row" style="padding:14px 0 0;border:0">
@@ -371,6 +375,13 @@ async function revokeKey(key){
   renderKeys();
 }
 function copyKey(k){ navigator.clipboard.writeText(k); }
+async function renewKey(key){
+  if (!confirm('Extend this key by 30 days? (Comping a renewal from the panel.)')) return;
+  const fd = new FormData(); fd.append('key', key); fd.append('days', '30'); fd.append('pin', pin());
+  const d = await post('/panel/api/keys/renew', fd);
+  card('Renew', stamp(), d.ok ? `Extended to ${esc(d.expires_at)}.` : esc(d.error || 'failed'), d.ok ? 'ok' : 'err');
+  renderKeys();
+}
 
 $('bKeys').onclick = async () => {
   const b = $('bKeys'); busy(b, true);
@@ -390,16 +401,27 @@ async function renderBilling(){
   const rows = (d.purchases||[]).map(p =>
     `<div class="row" style="padding:6px 0;border:0"><span class="mono" style="flex:1">${esc(p.reference)}</span>
      <span class="small">₹${p.amount_inr} · ${esc(p.plan)} · ${esc(p.status)}${p.issued_key ? ' · ' + esc(p.issued_key) : ''}</span>
-     ${p.status === 'paid' ? '' : `<button class="small" onclick="issueRef('${esc(p.reference)}')">Issue key</button>`}</div>`).join('')
+     ${p.status === 'paid' ? '' : `<button class="small" onclick="issueRef('${esc(p.reference)}')">Issue key</button>`}
+     ${p.renew_key ? `<button class="small" onclick="renewRef('${esc(p.renew_key)}')">Renew link</button>` : ''}</div>`).join('')
      || '<div class="small">No purchases yet.</div>';
+  const expiring = (b.expiring_soon||[]).length
+    ? `<div class="small" style="margin:14px 0 4px;color:var(--stamp)">EXPIRING SOON</div>` +
+      (b.expiring_soon).map(e => `<div class="row" style="padding:4px 0;border:0"><span class="mono" style="flex:1">${esc(e.masked)}</span><span class="small">${esc(e.tier)} · lapses ${esc((e.expires_at||'').slice(0,10))}</span></div>`).join('')
+    : '';
   const h = `<div class="small" style="margin-bottom:12px">
       Provider: <b>${esc(b.provider || '—')}</b> ·
       keys: ${b.configured ? '<span style="color:var(--good)">configured ✓</span>' : '<span style="color:var(--stamp)">missing RAZORPAY_KEY_ID / RAZORPAY_KEY_SECRET</span>'} ·
       webhook: ${b.webhook_configured ? '<span style="color:var(--good)">configured ✓</span>' : '<span style="color:var(--stamp)">missing RAZORPAY_WEBHOOK_SECRET</span>'}
     </div>
     <div class="small" style="margin:10px 0 4px;color:var(--muted-2)">PLANS</div>${plans}
+    ${expiring}
     <div class="small" style="margin:14px 0 4px;color:var(--muted-2)">RECENT PURCHASES</div>${rows}`;
   card('Payments', stamp(), h, 'ok');
+}
+async function renewRef(renewKey){
+  const fd = new FormData(); fd.append('renew_key', renewKey); fd.append('pin', pin());
+  const d = await post('/panel/api/billing/renew', fd);
+  card('Renewal link', stamp(), d.ok ? `<a class="small" href="${esc(d.url)}" target="_blank" rel="noopener">Open link ↗</a><pre>${esc(d.url || '')}</pre>` : esc(d.error || 'failed'), d.ok ? 'ok' : 'err');
 }
 async function issueRef(ref){
   const fd = new FormData(); fd.append('reference', ref); fd.append('pin', pin());

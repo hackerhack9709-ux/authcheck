@@ -211,9 +211,30 @@ def run_checks() -> tuple[bool, list[dict]]:
     second = billing.fulfil_payment(ref, "pay_test_1", "buyer@example.com")
     check("payment issues a key", first.get("ok") and first["key"].startswith("ac_"), True)
     check("fulfilment is idempotent", second.get("already_issued") and second["key"] == first["key"], True)
+    check("paid key carries an expiry", bool(first.get("expires_at")), True)
     check("issued key is on the paid tier", keys.identify(first["key"], "10.0.0.9")["tier"], "desk")
     keys.revoke_key(first["key"])
     check("revoked key drops to anonymous", keys.identify(first["key"], "10.0.0.9")["tier"], "anonymous")
+
+    # 12. Expiry and renewal
+    paid = keys.create_key("expiry-test", tier="pro", days=30)
+    check("key created with expiry", bool(paid["expires_at"]), True)
+    lapsed = keys.create_key("lapsed-test", tier="pro", days=-1)
+    check("expired key is rejected", keys.verify_key(lapsed["key"]), None)
+    check("expired key explains itself", keys.why_invalid(lapsed["key"]), "expired")
+    check("expired key falls back to anonymous", keys.identify(lapsed["key"], "10.0.0.8")["tier"], "anonymous")
+
+    extended = keys.extend_key(paid["key"], 30)
+    check("renewal extends the key", extended and extended > paid["expires_at"], True)
+    revived = keys.extend_key(lapsed["key"], 30)
+    check("renewal revives a lapsed key", keys.verify_key(lapsed["key"]) is not None, True)
+    check("revival returns a fresh expiry", bool(revived), True)
+
+    renew_ref = f"renew-{first.get('renew_key', 'nope')}"
+    renewed = billing.fulfil_payment(renew_ref, "pay_renew_1")
+    check("renew reference extends instead of reissuing", renewed.get("renewed"), True)
+    check("renewal keeps the same key", renewed.get("key"), first["key"])
+    check("unknown renewal key is refused", billing.fulfil_payment("renew-deadbeef", "p").get("ok"), False)
 
     passed = all(c["ok"] for c in CHECKS)
     return passed, CHECKS

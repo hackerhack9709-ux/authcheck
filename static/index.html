@@ -556,6 +556,7 @@ footer{padding:52px 0 70px;border-top:1px solid var(--line)}
         <dl>
           <div class="kv"><b>Quota key</b><span>your <span class="mono">X-API-Key</span></span></div>
           <div class="kv"><b>Layers</b><span>all ten</span></div>
+          <div class="kv"><b>Renews</b><span>monthly · 30-day key</span></div>
           <div class="kv"><b>Best for</b><span>a project that outgrew free</span></div>
         </dl>
         <button class="buy" data-plan="starter" onclick="buyPlan('starter', this)">Buy Starter — ₹99/mo</button>
@@ -569,6 +570,7 @@ footer{padding:52px 0 70px;border-top:1px solid var(--line)}
         <dl>
           <div class="kv"><b>Quota key</b><span>your <span class="mono">X-API-Key</span></span></div>
           <div class="kv"><b>Layers</b><span>all ten</span></div>
+          <div class="kv"><b>Renews</b><span>monthly · 30-day key</span></div>
           <div class="kv"><b>Best for</b><span>newsrooms and platforms</span></div>
         </dl>
         <button class="buy solid" data-plan="pro" onclick="buyPlan('pro', this)">Buy Pro desk — ₹499/mo</button>
@@ -577,7 +579,8 @@ footer{padding:52px 0 70px;border-top:1px solid var(--line)}
     <div class="authnote" id="billingNote">
       <b>Every pass is metered the same way</b> — a sliding one-hour window on the four analysis
       endpoints. A request with no key, or a revoked one, is never an error: it simply falls back
-      to the walk-in quota. Paid keys are issued automatically on payment.
+      to the walk-in quota. Paid keys are issued automatically on payment and run for 30 days;
+      renew before they lapse and the same key keeps working.
     </div>
   </div>
 </section>
@@ -886,9 +889,12 @@ async function loadPlans(){
 
 async function buyPlan(planId, btn){
   const original = btn.textContent;
+  // Optional, but without it we cannot reach the buyer after they close the tab.
+  const email = (prompt('Email for your receipt and key (optional):') || '').trim();
   btn.disabled = true; btn.textContent = 'Opening checkout…';
   try{
     const body = new URLSearchParams({plan: planId});
+    if(email) body.append('email', email);
     const r = await fetch('/billing/checkout', {method:'POST', body});
     const d = await r.json();
     if(d.ok && d.url){ location.href = d.url; return; }

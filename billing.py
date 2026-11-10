@@ -25,7 +25,7 @@ import urllib.error
 import urllib.parse
 import urllib.request
 import uuid
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 import keys
@@ -43,6 +43,7 @@ PLANS = {
         "name": "Pro desk",
         "amount_inr": 499,
         "interval": "monthly",
+        "days": 30,
         "tier": "desk",
         "limit_per_hour": keys.TIERS["desk"]["limit"],
         "blurb": "For a busy solo desk or a small newsroom tool.",
@@ -51,6 +52,7 @@ PLANS = {
         "name": "Starter",
         "amount_inr": 99,
         "interval": "monthly",
+        "days": 30,
         "tier": "pro",
         "limit_per_hour": keys.TIERS["pro"]["limit"],
         "blurb": "For a personal project that outgrew the free quota.",
@@ -72,10 +74,14 @@ def _connect() -> sqlite3.Connection:
             order_ref     TEXT,
             issued_key    TEXT,
             created_at    TEXT NOT NULL,
-            status        TEXT NOT NULL
+            status        TEXT NOT NULL,
+            renew_key     TEXT
         )
         """
     )
+    cols = {r[1] for r in conn.execute("PRAGMA table_info(purchases)")}
+    if "renew_key" not in cols:
+        conn.execute("ALTER TABLE purchases ADD COLUMN renew_key TEXT")
     return conn
 
 
@@ -117,6 +123,10 @@ def create_payment_link(plan_id: str, email: str = "", base_url: str = "") -> di
     plan = PLANS.get(plan_id)
     if not plan:
         return {"ok": False, "error": f"unknown plan: {plan_id}"}
+    return _payment_link(f"authcheck-{plan_id}-{uuid.uuid4().hex[:10]}", plan, email, base_url)
+
+
+def _payment_link(reference: str, plan: dict, email: str, base_url: str) -> dict:
     if not razorpay_ready():
         return {
             "ok": False,
@@ -127,13 +137,12 @@ def create_payment_link(plan_id: str, email: str = "", base_url: str = "") -> di
             ) if not v],
         }
 
-    reference = f"authcheck-{plan_id}-{uuid.uuid4().hex[:10]}"
     body = {
         "amount": plan["amount_inr"] * 100,
         "currency": "INR",
         "description": f"AuthCheck {plan['name']} — {plan['limit_per_hour']} checks/hour",
         "reference_id": reference,
-        "notes": {"plan": plan_id, "tier": plan["tier"]},
+        "notes": {"plan": plan_id_from(plan), "tier": plan["tier"]},
     }
     if email:
         body["customer"] = {"email": email}
@@ -148,8 +157,16 @@ def create_payment_link(plan_id: str, email: str = "", base_url: str = "") -> di
     except Exception as e:
         return {"ok": False, "error": f"{type(e).__name__}: {e}"}
 
-    _record(reference, plan_id, plan["amount_inr"], email, status="link_created")
+    if not reference.startswith("renew-"):
+        _record(reference, plan_id_from(plan), plan["amount_inr"], email, status="link_created")
     return {"ok": True, "url": data.get("short_url"), "reference": reference, "amount_inr": plan["amount_inr"]}
+
+
+def plan_id_from(plan: dict) -> str:
+    for pid, p in PLANS.items():
+        if p is plan:
+            return pid
+    return ""
 
 
 # --------------------------------------------------------------------------- #
@@ -163,14 +180,14 @@ def verify_webhook(raw_body: bytes, signature: str) -> bool:
 
 
 def _record(ref: str, plan_id: str, amount: int, email: str, payment_id: str = "",
-            issued_key: str = "", status: str = "pending") -> None:
+            issued_key: str = "", status: str = "pending", renew_key: str = "") -> None:
     with _lock, _connect() as conn:
         conn.execute(
             "INSERT OR REPLACE INTO purchases "
-            "(id, plan, amount_inr, email, payment_id, order_ref, issued_key, created_at, status) "
-            "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            "(id, plan, amount_inr, email, payment_id, order_ref, issued_key, created_at, status, renew_key) "
+            "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
             (ref, plan_id, amount, email, payment_id, ref, issued_key,
-             datetime.now(timezone.utc).isoformat(timespec="seconds"), status),
+             datetime.now(timezone.utc).isoformat(timespec="seconds"), status, renew_key),
         )
 
 
@@ -178,18 +195,41 @@ def _lookup_reference(ref: str) -> dict | None:
     try:
         with _lock, _connect() as conn:
             row = conn.execute(
-                "SELECT plan, email, amount_inr, status, issued_key FROM purchases WHERE order_ref = ?",
+                "SELECT plan, email, amount_inr, status, issued_key, renew_key "
+                "FROM purchases WHERE order_ref = ?",
                 (ref,),
             ).fetchone()
     except Exception:
         return None
     if not row:
         return None
-    return {"plan": row[0], "email": row[1], "amount_inr": row[2], "status": row[3], "issued_key": row[4]}
+    return {"plan": row[0], "email": row[1], "amount_inr": row[2], "status": row[3],
+            "issued_key": row[4], "renew_key": row[5]}
+
+
+def _lookup_by_renew(renew_key: str) -> dict | None:
+    try:
+        with _lock, _connect() as conn:
+            row = conn.execute(
+                "SELECT plan, email, issued_key FROM purchases WHERE renew_key = ? ORDER BY created_at DESC",
+                (renew_key,),
+            ).fetchone()
+    except Exception:
+        return None
+    if not row:
+        return None
+    return {"plan": row[0], "email": row[1], "issued_key": row[2]}
 
 
 def fulfil_payment(reference: str, payment_id: str, email: str = "") -> dict:
-    """Issue a key for a paid reference. Idempotent: re-running returns the same key."""
+    """Issue a key for a paid reference. Idempotent: re-running returns the same key.
+
+    A reference of the form `renew-<renew_key>` extends the existing subscription
+    instead of minting a new key, so a renewal keeps the customer's key working.
+    """
+    if reference.startswith("renew-"):
+        return renew_payment(reference[len("renew-"):], payment_id)
+
     existing = _lookup_reference(reference)
     if existing and existing["issued_key"]:
         return {"ok": True, "already_issued": True, "key": existing["issued_key"], "plan": existing["plan"]}
@@ -205,10 +245,42 @@ def fulfil_payment(reference: str, payment_id: str, email: str = "") -> dict:
     if not plan:
         return {"ok": False, "error": f"cannot map reference to a plan: {reference}"}
 
-    record = keys.create_key(name=f"razorpay:{plan['name']}:{email or 'buyer'}", tier=plan["tier"])
+    renew_key = uuid.uuid4().hex
+    record = keys.create_key(
+        name=f"razorpay:{plan['name']}:{email or 'buyer'}",
+        tier=plan["tier"],
+        days=plan.get("days", 30),
+    )
     _record(reference, plan_id, plan["amount_inr"], email or (existing or {}).get("email", ""),
-            payment_id=payment_id, issued_key=record["key"], status="paid")
-    return {"ok": True, "key": record["key"], "plan": plan_id, "tier": plan["tier"]}
+            payment_id=payment_id, issued_key=record["key"], status="paid", renew_key=renew_key)
+    return {"ok": True, "key": record["key"], "plan": plan_id, "tier": plan["tier"],
+            "expires_at": record.get("expires_at"), "renew_key": renew_key}
+
+
+def renew_payment(renew_key: str, payment_id: str = "") -> dict:
+    """Extend the subscription behind a renew_key by the plan's period."""
+    found = _lookup_by_renew(renew_key)
+    if not found or not found["issued_key"]:
+        return {"ok": False, "error": f"unknown renewal key: {renew_key}"}
+    plan = PLANS.get(found["plan"] or "")
+    if not plan:
+        return {"ok": False, "error": f"unknown plan for renewal: {found['plan']}"}
+    new_expiry = keys.extend_key(found["issued_key"], plan.get("days", 30))
+    if not new_expiry:
+        return {"ok": False, "error": "could not extend the key"}
+    return {"ok": True, "renewed": True, "key": found["issued_key"],
+            "plan": found["plan"], "expires_at": new_expiry}
+
+
+def create_renewal_link(renew_key: str, base_url: str = "") -> dict:
+    """Open a payment link that renews an existing subscription."""
+    found = _lookup_by_renew(renew_key)
+    if not found:
+        return {"ok": False, "error": "unknown renewal key"}
+    plan = PLANS.get(found["plan"] or "")
+    if not plan:
+        return {"ok": False, "error": "unknown plan"}
+    return _payment_link(f"renew-{renew_key}", plan, found["email"] or "", base_url)
 
 
 def handle_webhook(raw_body: bytes, signature: str, headers: dict) -> dict:
@@ -242,7 +314,7 @@ def recent_purchases(limit: int = 20) -> list[dict]:
     try:
         with _lock, _connect() as conn:
             rows = conn.execute(
-                "SELECT id, plan, amount_inr, email, status, issued_key, created_at "
+                "SELECT id, plan, amount_inr, email, status, issued_key, created_at, renew_key "
                 "FROM purchases ORDER BY created_at DESC LIMIT ?",
                 (limit,),
             ).fetchall()
@@ -250,7 +322,8 @@ def recent_purchases(limit: int = 20) -> list[dict]:
         return []
     return [
         {"reference": r[0], "plan": r[1], "amount_inr": r[2], "email": r[3], "status": r[4],
-         "issued_key": (r[5][:9] + "…" + r[5][-4:]) if r[5] else None, "created_at": r[6]}
+         "issued_key": (r[5][:9] + "…" + r[5][-4:]) if r[5] else None, "created_at": r[6],
+         "renew_key": r[7]}
         for r in rows
     ]
 
@@ -262,3 +335,15 @@ def billing_summary() -> dict:
         "webhook_configured": bool(RAZORPAY_WEBHOOK_SECRET),
         "plans": plans_public(),
     }
+
+
+def expiring_soon(days: int = 7) -> list[dict]:
+    """Paid keys lapsing within `days`, so the panel can flag renewals."""
+    cutoff = (datetime.now(timezone.utc) + timedelta(days=days)).isoformat(timespec="seconds")
+    now = datetime.now(timezone.utc).isoformat(timespec="seconds")
+    out = []
+    for k in keys.list_keys():
+        exp = k.get("expires_at")
+        if exp and now < exp <= cutoff and not k.get("revoked"):
+            out.append({"masked": k["masked"], "tier": k["tier"], "expires_at": exp, "name": k["name"]})
+    return out

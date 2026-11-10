@@ -19,7 +19,7 @@ import secrets
 import sqlite3
 import threading
 import time
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 DB_PATH = Path(os.environ.get("AUTHCHECK_DB", "./data/authcheck.db"))
@@ -55,11 +55,31 @@ def _connect() -> sqlite3.Connection:
             created_at  TEXT NOT NULL,
             revoked     INTEGER NOT NULL DEFAULT 0,
             requests    INTEGER NOT NULL DEFAULT 0,
-            last_used   TEXT
+            last_used   TEXT,
+            expires_at  TEXT
         )
         """
     )
+    # older databases predate expiry
+    cols = {r[1] for r in conn.execute("PRAGMA table_info(api_keys)")}
+    if "expires_at" not in cols:
+        conn.execute("ALTER TABLE api_keys ADD COLUMN expires_at TEXT")
     return conn
+
+
+def _expiry_from_now(days: int) -> str | None:
+    if not days:
+        return None
+    return (datetime.now(timezone.utc) + timedelta(days=days)).isoformat(timespec="seconds")
+
+
+def _is_expired(expires_at: str | None) -> bool:
+    if not expires_at:
+        return False
+    try:
+        return datetime.now(timezone.utc) > datetime.fromisoformat(expires_at)
+    except ValueError:
+        return False
 
 
 def storage_available() -> bool:
@@ -87,17 +107,47 @@ def _static_keys() -> dict[str, dict]:
 # --------------------------------------------------------------------------- #
 # key lifecycle
 # --------------------------------------------------------------------------- #
-def create_key(name: str, tier: str = "pro") -> dict:
+def create_key(name: str, tier: str = "pro", days: int = 0) -> dict:
+    """Mint a key. days=0 means it never expires (used for free and internal keys)."""
     if tier not in TIERS:
         raise ValueError(f"unknown tier: {tier}")
     key = KEY_PREFIX + secrets.token_urlsafe(24)
     created = datetime.now(timezone.utc).isoformat(timespec="seconds")
+    expires = _expiry_from_now(days)
     with _lock, _connect() as conn:
         conn.execute(
-            "INSERT INTO api_keys (key, name, tier, created_at) VALUES (?, ?, ?, ?)",
-            (key, name.strip() or "unnamed", tier, created),
+            "INSERT INTO api_keys (key, name, tier, created_at, expires_at) VALUES (?, ?, ?, ?, ?)",
+            (key, name.strip() or "unnamed", tier, created, expires),
         )
-    return {"key": key, "name": name, "tier": tier, "created_at": created, "revoked": False}
+    return {"key": key, "name": name, "tier": tier, "created_at": created,
+            "expires_at": expires, "revoked": False}
+
+
+def extend_key(key: str, days: int) -> str | None:
+    """Push a key's expiry out by `days`, from now if already lapsed. Returns the new expiry."""
+    if days <= 0:
+        return None
+    try:
+        with _lock, _connect() as conn:
+            row = conn.execute("SELECT expires_at FROM api_keys WHERE key = ?", (key,)).fetchone()
+            if not row:
+                return None
+            base = datetime.now(timezone.utc)
+            if row[0]:
+                try:
+                    current = datetime.fromisoformat(row[0])
+                    if current > base:
+                        base = current
+                except ValueError:
+                    pass
+            new_expiry = (base + timedelta(days=days)).isoformat(timespec="seconds")
+            conn.execute(
+                "UPDATE api_keys SET expires_at = ?, revoked = 0 WHERE key = ?",
+                (new_expiry, key),
+            )
+        return new_expiry
+    except Exception:
+        return None
 
 
 def revoke_key(key: str) -> bool:
@@ -110,7 +160,7 @@ def list_keys() -> list[dict]:
     try:
         with _lock, _connect() as conn:
             rows = conn.execute(
-                "SELECT key, name, tier, created_at, revoked, requests, last_used "
+                "SELECT key, name, tier, created_at, revoked, requests, last_used, expires_at "
                 "FROM api_keys ORDER BY created_at DESC"
             ).fetchall()
     except Exception:
@@ -125,6 +175,8 @@ def list_keys() -> list[dict]:
             "revoked": bool(r[4]),
             "requests": r[5],
             "last_used": r[6],
+            "expires_at": r[7],
+            "expired": _is_expired(r[7]),
             "limit_per_hour": TIERS.get(r[2], TIERS["pro"])["limit"],
         }
         for r in rows
@@ -148,7 +200,7 @@ def list_keys() -> list[dict]:
 
 
 def verify_key(key: str) -> dict | None:
-    """Return the key record when valid, else None."""
+    """Return the key record when valid, else None. Expired and revoked keys are invalid."""
     if not key:
         return None
     static = _static_keys()
@@ -157,14 +209,33 @@ def verify_key(key: str) -> dict | None:
     try:
         with _lock, _connect() as conn:
             row = conn.execute(
-                "SELECT key, name, tier, created_at, revoked FROM api_keys WHERE key = ?",
+                "SELECT key, name, tier, created_at, revoked, expires_at FROM api_keys WHERE key = ?",
                 (key,),
             ).fetchone()
     except Exception:
         return None
-    if not row or row[4]:
+    if not row or row[4] or _is_expired(row[5]):
         return None
-    return {"key": row[0], "name": row[1], "tier": row[2], "created_at": row[3], "source": "db"}
+    return {"key": row[0], "name": row[1], "tier": row[2], "created_at": row[3],
+            "expires_at": row[5], "source": "db"}
+
+
+def why_invalid(key: str) -> str:
+    """Explain a rejected key, so the panel can say 'expired' rather than 'unknown'."""
+    if not key:
+        return "missing"
+    try:
+        with _lock, _connect() as conn:
+            row = conn.execute("SELECT revoked, expires_at FROM api_keys WHERE key = ?", (key,)).fetchone()
+    except Exception:
+        return "unknown"
+    if not row:
+        return "unknown"
+    if row[0]:
+        return "revoked"
+    if _is_expired(row[1]):
+        return "expired"
+    return "unknown"
 
 
 def identify(api_key: str, client_ip: str) -> dict:
@@ -172,7 +243,8 @@ def identify(api_key: str, client_ip: str) -> dict:
     record = verify_key(api_key)
     if record:
         return {"tier": record["tier"], "bucket": record["key"], "key": record, "valid_key": True}
-    return {"tier": "anonymous", "bucket": f"ip:{client_ip or 'unknown'}", "key": None, "valid_key": False}
+    return {"tier": "anonymous", "bucket": f"ip:{client_ip or 'unknown'}", "key": None,
+            "valid_key": False, "invalid_reason": why_invalid(api_key)}
 
 
 # --------------------------------------------------------------------------- #

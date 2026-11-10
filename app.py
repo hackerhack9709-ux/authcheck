@@ -203,6 +203,13 @@ async def billing_webhook(request: Request):
     return JSONResponse(result, status_code=200 if result.get("ok") else 400)
 
 
+@app.post("/billing/renew")
+async def billing_renew(renew_key: str = Form(...)):
+    """Open a payment link that renews the subscription behind a renew_key."""
+    base = os.environ.get("AUTHCHECK_PUBLIC_URL", "").strip()
+    return billing.create_renewal_link(renew_key.strip(), base_url=base)
+
+
 @app.get("/billing/status")
 def billing_status(ref: str = ""):
     """Polled by the success page until the webhook has issued the key."""

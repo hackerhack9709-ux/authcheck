@@ -26,7 +26,7 @@ try:
 except Exception:  # pragma: no cover
     piexif = None
 
-VERSION = "0.4"
+VERSION = "0.5"
 FACTCHECK_KEY = os.environ.get("FACTCHECK_API_KEY", "").strip()
 MAX_UPLOAD = 25 * 1024 * 1024
 MAX_VIDEO_UPLOAD = 100 * 1024 * 1024
