@@ -231,9 +231,17 @@ async def billing_renew(renew_key: str = Form(...)):
 
 
 @app.get("/billing/status")
-def billing_status(ref: str = ""):
-    """Polled by the success page until the webhook has issued the key."""
+def billing_status(ref: str = "", settle: bool = False):
+    """Polled by the success page until the key is issued.
+
+    With `settle=1` and no key yet, we ask Razorpay directly what the reference
+    is worth and issue the key if it was paid. That keeps a buyer from being
+    stranded when the dashboard webhook is missing or delayed.
+    """
     issued = billing.issued_key_for(ref) if ref else None
+    if not issued and ref and settle:
+        result = billing.reconcile_reference(ref)
+        issued = result.get("key") or (billing.issued_key_for(ref) if result.get("ok") else None)
     return {"ok": True, "reference": ref, "issued": bool(issued), "key": issued or ""}
 
 
@@ -275,7 +283,7 @@ def billing_success(ref: str = "", key: str = ""):
       if (ref && !haveKey) {{
         const t = setInterval(async () => {{
           try {{
-            const r = await fetch('/billing/status?ref=' + encodeURIComponent(ref));
+            const r = await fetch('/billing/status?settle=1&ref=' + encodeURIComponent(ref));
             const d = await r.json();
             if (d.issued) {{ clearInterval(t); location.search = '?ref=' + encodeURIComponent(ref) + '&key=' + encodeURIComponent(d.key); }}
           }} catch (e) {{}}

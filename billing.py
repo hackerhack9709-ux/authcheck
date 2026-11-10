@@ -129,6 +129,78 @@ def _razorpay(path: str, body: dict) -> dict:
         return json.load(r)
 
 
+def _razorpay_get(path: str) -> dict:
+    """GET from Razorpay's REST API with basic auth."""
+    url = f"https://api.razorpay.com/v1{path}"
+    token = base64.b64encode(f"{RAZORPAY_KEY_ID}:{RAZORPAY_KEY_SECRET}".encode()).decode()
+    req = urllib.request.Request(url, headers={"Authorization": f"Basic {token}"})
+    with urllib.request.urlopen(req, timeout=25) as r:
+        return json.load(r)
+
+
+def payment_link_status(reference: str) -> str | None:
+    """Ask Razorpay what a reference is worth: 'paid', 'created', 'cancelled' or None.
+
+    This is the safety net for webhook delivery. Razorpay's REST API refuses
+    webhook creation from a script, so a webhook can only be added by hand in
+    the dashboard — and until it is, a paid link would never be fulfilled. Any
+    code path that has a reference in hand can call this to settle the truth.
+    """
+    if not razorpay_ready() or not reference:
+        return None
+    try:
+        data = _razorpay_get(f"/payment_links?reference_id={urllib.parse.quote(reference)}")
+    except Exception:
+        return None
+    for item in (data.get("payment_links") or data.get("items") or []):
+        if item.get("reference_id") == reference:
+            return item.get("status")
+    return None
+
+
+def reconcile_reference(reference: str) -> dict:
+    """Settle a reference against Razorpay and issue the key if it was paid.
+
+    Idempotent: a reference already fulfilled returns its existing key.
+    """
+    existing = _lookup_reference(reference)
+    if existing and existing["issued_key"]:
+        return {"ok": True, "already_issued": True, "key": existing["issued_key"], "plan": existing["plan"]}
+
+    status = payment_link_status(reference)
+    if status is None:
+        return {"ok": False, "error": "razorpay unreachable or reference unknown", "status": None}
+    if status != "paid":
+        return {"ok": False, "error": f"link is not paid yet", "status": status}
+    return fulfil_payment(reference, payment_id="reconciled", email="")
+
+
+def reconcile_pending() -> dict:
+    """Sweep every link_created purchase and fulfil the ones Razorpay says are paid.
+
+    The control room calls this so a missing webhook never strands a paying
+    customer. Returns the references it settled and the ones still unpaid.
+    """
+    with _lock, _connect() as conn:
+        rows = conn.execute(
+            "SELECT order_ref FROM purchases WHERE status = 'link_created' ORDER BY created_at DESC"
+        ).fetchall()
+    settled, pending, failed = [], [], []
+    for (ref,) in rows:
+        if not ref or ref.startswith("renew-"):
+            continue
+        status = payment_link_status(ref)
+        if status == "paid":
+            result = fulfil_payment(ref, payment_id="reconciled", email="")
+            (settled if result.get("ok") else failed).append(
+                {"reference": ref, "key": result.get("key"), "error": result.get("error")}
+            )
+        else:
+            pending.append({"reference": ref, "status": status})
+    return {"ok": True, "settled": settled, "pending": pending, "failed": failed,
+            "settled_count": len(settled)}
+
+
 def create_payment_link(plan_id: str, email: str = "", base_url: str = "") -> dict:
     """Create a Razorpay Payment Link for a plan. Returns {ok, url, ...}."""
     plan = PLANS.get(plan_id)

@@ -259,6 +259,16 @@ def run_checks() -> tuple[bool, list[dict]]:
     check("starter plan maps to a real tier", billing.PLANS["starter"]["tier"] in keys.TIERS, True)
     check("pro plan maps to a real tier", billing.PLANS["pro"]["tier"] in keys.TIERS, True)
 
+    # reconciliation is the net for a missing webhook. It short-circuits on a
+    # reference that already has a key, so this path needs no network.
+    settled = billing.reconcile_reference(ref)
+    check("reconcile returns the key already issued", settled.get("key"), first["key"])
+    check("reconcile is idempotent", billing.reconcile_reference(ref).get("already_issued"), True)
+    swept = billing.reconcile_pending()
+    check("reconcile sweep reports ok", swept.get("ok"), True)
+    check("a fulfilled purchase is not swept again",
+          any(s["reference"] == ref for s in swept["settled"]), False)
+
     passed = all(c["ok"] for c in CHECKS)
     return passed, CHECKS
 

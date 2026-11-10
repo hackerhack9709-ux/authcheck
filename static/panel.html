@@ -421,8 +421,24 @@ async function renderBilling(){
     </div>
     <div class="small" style="margin:10px 0 4px;color:var(--muted-2)">PLANS</div>${plans}
     ${expiring}
-    <div class="small" style="margin:14px 0 4px;color:var(--muted-2)">RECENT PURCHASES</div>${rows}`;
+    <div class="small" style="margin:14px 0 4px;color:var(--muted-2)">RECENT PURCHASES</div>${rows}
+    <div class="row" style="padding:14px 0 0;border:0">
+      <button class="small" onclick="reconcileBilling()">Reconcile unpaid links with Razorpay</button>
+    </div>`;
   card('Payments', stamp(), h, 'ok');
+}
+async function reconcileBilling(){
+  const fd = new FormData(); fd.append('pin', pin());
+  const d = await post('/panel/api/billing/reconcile', fd);
+  if (!d.ok){ card('Reconcile', stamp(), esc(d.error || 'failed'), 'err'); return; }
+  const settled = (d.settled||[]).map(s => `<div class="row" style="padding:4px 0;border:0"><span class="mono" style="flex:1">${esc(s.reference)}</span><span class="small">${esc(s.key||'')}</span></div>`).join('');
+  const pending = (d.pending||[]).map(p => `<div class="row" style="padding:4px 0;border:0"><span class="mono" style="flex:1">${esc(p.reference)}</span><span class="small">${esc(p.status||'unknown')}</span></div>`).join('');
+  card('Reconcile', stamp(),
+    `<div class="small">Settled <b>${d.settled_count||0}</b> paid link(s) that had no webhook.</div>
+     ${settled ? '<div class="small" style="margin-top:10px;color:var(--good)">NOW ISSUED</div>'+settled : ''}
+     ${pending ? '<div class="small" style="margin-top:10px;color:var(--muted-2)">STILL UNPAID</div>'+pending : ''}`,
+    d.settled_count ? 'ok' : 'dim');
+  renderBilling();
 }
 async function renewRef(renewKey){
   const fd = new FormData(); fd.append('renew_key', renewKey); fd.append('pin', pin());

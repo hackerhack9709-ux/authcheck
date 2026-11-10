@@ -357,6 +357,21 @@ def billing_issue(reference: str = Form(...), pin: str = Form("")):
     return result
 
 
+@router.post("/panel/api/billing/reconcile")
+def billing_reconcile(pin: str = Form("")):
+    """Sweep pending purchases and fulfil the ones Razorpay says are paid.
+
+    The webhook can only be added by hand in the Razorpay dashboard, so this is
+    the operator's net: a paid link that never reached the webhook still gets
+    its key, and the buyer is not left waiting.
+    """
+    if not _authorised(pin):
+        return _denied()
+    if not billing.razorpay_ready():
+        return JSONResponse({"ok": False, "error": "razorpay keys are not configured"}, status_code=503)
+    return billing.reconcile_pending()
+
+
 # --------------------------------------------------------------------------- #
 # 7. share text (WhatsApp / copy)
 # --------------------------------------------------------------------------- #
