@@ -29,17 +29,17 @@
       fPayee: 'Payer / person name', fPayeePh: 'e.g. Saif Sayeed',
       fVpa: 'UPI ID (payer)', fVpaPh: 'name@bank',
       fAmount: 'Amount (₹)', fMethod: 'Method', fStatus: 'Status', fDate: 'Date',
-      fUtr: 'UTR / reference no. (12 digits)', fUtrPh: 'e.g. 402730210114',
+      fUtr: 'UTR / reference number', fUtrPh: '402730210114 or pay_XXXXXXXXXXXX',
       fNote: 'Note (optional)',
       save: 'Save', saved: 'Payment saved', invalidAmount: 'Enter a valid amount', invalidName: 'Enter a name',
       verifyTitle: 'Verify a payment',
-      verifyIntro: 'Fill this in before handing over goods. PayCheck scores the risk, then checks your payment gateway.',
+      verifyIntro: 'Check a payment before you hand over the goods. PayCheck compares it with your own records, then asks your gateway.',
       vPayee: 'Paid by whom? (name or UPI ID)', vPayeePh: 'Saif Sayeed / saif@okaxis',
-      vAmount: 'How much? (₹)', vUtr: 'UTR number (if available)',
+      vAmount: 'How much? (₹)', vUtr: 'UTR, or Razorpay payment ID',
       check: 'Check now',
       safe: 'Safe — you can hand over the goods',
       caution: 'Be careful', danger: 'Danger — do not hand over the goods',
-      checks: 'Your record check', gatewayTitle: 'Payment gateway check',
+      checks: 'Against your records', gatewayTitle: 'Gateway check',
       gatewayRunning: 'Contacting gateway…', gatewaySkipped: 'Gateway check skipped.',
       addPaymentBtn: 'Add this payment to records',
       qrTitle: 'Collect a payment (QR)',
@@ -66,12 +66,15 @@
       sandbox: 'Sandbox (offline simulator)', live: 'Live API',
       endpoint: 'Verification endpoint URL', apiKey: 'API key / secret',
       authStyle: 'Auth style', timeout: 'Timeout (seconds)', autoCheck: 'Auto-check on Verify tab',
+      provider: 'Provider', providerHint: 'Which gateway to verify against',
+      apiSecret: 'Proxy password', proxyUser: 'Proxy username',
+      secretNote: 'Your Razorpay key_secret stays on your own server, never in this browser. Point the endpoint at your proxy (see server/razorpay-verify.js).',
       saveSettings: 'Save settings', settingsSaved: 'Settings saved',
       security: 'Security', changePassword: 'Change password',
       currentPass: 'Current password', newPass: 'New password', setPinLbl: 'Set / change app PIN',
       data: 'Data', exportData: 'Export my data (JSON)', importData: 'Import data (JSON)',
       imported: 'Data imported', exported: 'Backup downloaded',
-      demoBanner: 'You are using the sandbox simulator — no real money or bank API is contacted.',
+      demoBanner: 'Sandbox simulator — no real money or bank API is contacted.',
       liveBanner: 'Live mode: results come from your own gateway endpoint.',
       status: { success: 'Success', pending: 'Pending', failed: 'Failed' },
       res: {
@@ -110,15 +113,15 @@
       fPayee: 'भुगतानकर्ता / व्यक्ति का नाम', fPayeePh: 'जैसे: Saif Sayeed',
       fVpa: 'UPI ID (भुगतानकर्ता)', fVpaPh: 'name@bank',
       fAmount: 'रकम (₹)', fMethod: 'तरीक़ा', fStatus: 'स्थिति', fDate: 'तारीख़',
-      fUtr: 'UTR / संदर्भ नंबर (12 अंक)', fUtrPh: 'जैसे: 402730210114', fNote: 'नोट (वैकल्पिक)',
+      fUtr: 'UTR या संदर्भ नंबर', fUtrPh: '402730210114 या pay_XXXXXXXXXXXX', fNote: 'नोट (वैकल्पिक)',
       save: 'सहेजें', saved: 'लेन-देन सहेजा गया', invalidAmount: 'सही रकम डालें', invalidName: 'नाम भरें',
       verifyTitle: 'भुगतान की जाँच करें',
-      verifyIntro: 'सामान देने से पहले यह भरें। पेचेक जोखिम जाँचता है, फिर आपके भुगतान गेटवे से पुष्टि करता है।',
+      verifyIntro: 'सामान देने से पहले भुगतान जाँचें। पेचेक आपके रिकॉर्ड से मिलाता है, फिर आपके गेटवे से पूछता है।',
       vPayee: 'किसका भुगतान? (नाम या UPI ID)', vPayeePh: 'Saif Sayeed / saif@okaxis',
-      vAmount: 'कितनी रकम? (₹)', vUtr: 'UTR नंबर (यदि मिला हो)',
+      vAmount: 'कितनी रकम? (₹)', vUtr: 'UTR या Razorpay payment ID',
       check: 'अब जाँचें',
       safe: 'सुरक्षित — सामान दे सकते हैं', caution: 'सावधानी बरतें', danger: 'खतरा — सामान न दें',
-      checks: 'आपके रिकॉर्ड की जाँच', gatewayTitle: 'भुगतान गेटवे जाँच',
+      checks: 'आपके रिकॉर्ड से', gatewayTitle: 'गेटवे जाँच',
       gatewayRunning: 'गेटवे से संपर्क हो रहा है…', gatewaySkipped: 'गेटवे जाँच छोड़ी गई।',
       addPaymentBtn: 'इस भुगतान को रिकॉर्ड में जोड़ें',
       qrTitle: 'भुगतान लें (QR)',
@@ -144,6 +147,9 @@
       sandbox: 'सैंडबॉक्स (ऑफ़लाइन सिम्युलेटर)', live: 'लाइव API',
       endpoint: 'जाँच एंडपॉइंट URL', apiKey: 'API कुंजी / सीक्रेट',
       authStyle: 'प्रमाणीकरण शैली', timeout: 'टाइमआउट (सेकंड)', autoCheck: 'जाँच टैब पर अपने-आप चलाएँ',
+      provider: 'प्रोवाइडर', providerHint: 'किस गेटवे से जाँच करनी है',
+      apiSecret: 'प्रॉक्सी पासवर्ड', proxyUser: 'प्रॉक्सी यूज़रनेम',
+      secretNote: 'आपकी Razorpay key_secret आपके ही सर्वर पर रहती है, इस ब्राउज़र में कभी नहीं। एंडपॉइंट को अपने प्रॉक्सी पर लगाएँ (देखें server/razorpay-verify.js)।',
       saveSettings: 'सेटिंग सहेजें', settingsSaved: 'सेटिंग सहेजी गई',
       security: 'सुरक्षा', changePassword: 'पासवर्ड बदलें',
       currentPass: 'वर्तमान पासवर्ड', newPass: 'नया पासवर्ड', setPinLbl: 'ऐप PIN बदलें',
@@ -245,7 +251,9 @@
   }
 
   /* --------------------------- derivation ------------------------------- */
-  const AV_COLORS = ['#3b82f6', '#8b5cf6', '#ec4899', '#f59e0b', '#22c55e', '#06b6d4', '#ef4444', '#6366f1'];
+  /* Muted, evenly-weighted hues. A merchant reading this all day should not
+     be looking at a fruit salad. */
+  const AV_COLORS = ['#3f5f8f', '#4a6b7c', '#5a5f8a', '#7a5f52', '#4f6b57', '#6b5a7a', '#5f6b4f'];
   const avatarColor = (s) => {
     let h = 0; for (const ch of String(s)) h = (h * 31 + ch.charCodeAt(0)) % 997;
     return AV_COLORS[h % AV_COLORS.length];
@@ -295,7 +303,7 @@
     const days = [...new Set(state.txns.map((t) => t.day))];
 
     v.appendChild(el('div', 'banner',
-      `<span class="em">⚠️</span><div><strong>${esc(T().bannerTitle)}</strong><p>${esc(T().bannerText)}</p></div>`));
+      `<span class="banner-ico">${Icon('alert', 18)}</span><div><strong>${esc(T().bannerTitle)}</strong><p>${esc(T().bannerText)}</p></div>`));
 
     v.appendChild(el('div', 'summary',
       `<div class="label">${esc(T().totalReceived)}</div>
@@ -307,7 +315,7 @@
        </div>`));
 
     const search = el('div', 'search',
-      `<span class="ico">🔍</span><input id="q" placeholder="${esc(T().searchPh)}" value="${esc(state.q)}">`);
+      `<span class="ico">${Icon('search', 18)}</span><input id="q" placeholder="${esc(T().searchPh)}" value="${esc(state.q)}">`);
     const qInput = $('#q', search);
     qInput.oninput = () => {
       state.q = qInput.value;
@@ -318,16 +326,17 @@
 
     const chips = el('div', 'chips');
     const addChip = (label, on, fn) => {
-      const c = el('button', 'chip' + (on ? ' on' : ''), esc(label));
+      const html = /</.test(label) ? label : esc(label);
+      const c = el('button', 'chip' + (on ? ' on' : ''), html);
       c.type = 'button'; c.onclick = fn; chips.appendChild(c);
     };
     addChip(T().all, !state.status, () => { state.status = ''; render(); });
     ['success', 'pending', 'failed'].forEach((s) =>
       addChip(T().status[s], state.status === s, () => { state.status = state.status === s ? '' : s; render(); }));
-    addChip('▦ ' + T().methodFilter, !!state.method, () => pickMethod());
-    addChip('📅 ' + (state.date || T().dateFilter), !!state.date, () => pickDate(days));
+    addChip(Icon('layers', 15) + ' ' + T().methodFilter, !!state.method, () => pickMethod());
+    addChip(Icon('calendar', 15) + ' ' + (state.date || T().dateFilter), !!state.date, () => pickDate(days));
     if (state.method || state.date)
-      addChip('✕ ' + T().all, false, () => { state.method = ''; state.date = ''; render(); });
+      addChip(Icon('x', 14) + ' ' + T().all, false, () => { state.method = ''; state.date = ''; render(); });
     v.appendChild(chips);
 
     v.appendChild(txnList());
@@ -381,7 +390,7 @@
     const m = el('div', 'modal show');
     m.innerHTML =
       `<div class="modal-card">
-         <button class="close" type="button">✕</button>
+         <button class="close" type="button" aria-label="${esc(T().close)}">${Icon('x', 18)}</button>
          <h3>${esc(T().detail)}</h3>
          <div class="result ok" style="margin-top:0">
            <div class="kv"><span>${esc(T().fPayee)}</span><span>${esc(t.payee)}</span></div>
@@ -394,10 +403,10 @@
            ${t.note ? `<div class="kv"><span>${esc(T().fNote)}</span><span>${esc(t.note)}</span></div>` : ''}
          </div>
          <div class="share-bar">
-           <button class="btn wa-btn" id="wa" type="button">🟢 ${esc(T().shareReceipt)}</button>
-           <button class="btn copy-btn" id="cp" type="button">⧉ ${esc(T().copy)}</button>
+           <button class="btn wa-btn" id="wa" type="button">${Icon('chat', 17)} ${esc(T().shareReceipt)}</button>
+           <button class="btn copy-btn" id="cp" type="button">${Icon('copy', 17)} ${esc(T().copy)}</button>
          </div>
-         ${t.status === 'pending' ? `<button class="btn ghost sm" id="rm" type="button" style="margin-top:8px">🔔 ${esc(T().remind)}</button>` : ''}
+         ${t.status === 'pending' ? `<button class="btn ghost sm" id="rm" type="button" style="margin-top:8px">${Icon('bell', 16)} ${esc(T().remind)}</button>` : ''}
          <button class="btn ghost sm" id="del" type="button" style="margin-top:8px">${esc(T().delete)}</button>
        </div>`;
     const close = () => m.remove();
@@ -529,9 +538,9 @@
 
     const cfg = Gateway.getConfig(state.user && state.user.id);
     const banner = el('div', 'mode-pill ' + (cfg.mode === 'live' ? 'live' : 'sandbox'),
-      cfg.mode === 'live' ? '● ' + esc(T().live) : '● ' + esc(T().sandbox));
+      `<span class="dot"></span>${esc(cfg.mode === 'live' ? T().live : T().sandbox)}`);
     v.appendChild(el('div', 'card',
-      `<p style="margin:0 0 10px;font-size:12.5px;color:#9fb0cd;line-height:1.5">${esc(T().verifyIntro)}</p>`));
+      `<p class="card-intro">${esc(T().verifyIntro)}</p>`));
     v.appendChild(banner);
 
     const form = el('div', 'card',
@@ -539,37 +548,47 @@
          <input id="v-payee" placeholder="${esc(T().vPayeePh)}"></div>
        <div class="row2">
          <div class="field"><label>${esc(T().vAmount)}</label><input id="v-amt" type="number" inputmode="decimal" placeholder="0"></div>
-         <div class="field"><label>${esc(T().vUtr)}</label><input id="v-utr" inputmode="numeric" maxlength="12" placeholder="402730210114"></div>
+         <div class="field"><label>${esc(T().vUtr)}</label><input id="v-utr" maxlength="40" placeholder="pay_XXXXXXXXXXXX"></div>
        </div>
-       <button class="btn green" id="v-go" type="button">🛡️ ${esc(T().check)}</button>`);
+       <button class="btn green" id="v-go" type="button">${Icon('shield', 18)} ${esc(T().check)}</button>`);
     v.appendChild(form);
 
     const out = el('div');
     v.appendChild(out);
 
-    const icon = { ok: '✔', warn: '!', bad: '✕' };
+    const mark = { ok: Icon('check', 15), warn: Icon('alert', 15), bad: Icon('x', 15) };
+    const markCls = { ok: 'mark-ok', warn: 'mark-warn', bad: 'mark-bad' };
 
     function renderResult(checks, gw, gwState) {
       const { verdict, advice } = verdictFor(checks, gw);
-      const title = verdict === 'ok' ? '✅ ' + T().safe : verdict === 'pend' ? '⚠️ ' + T().caution : '⛔ ' + T().danger;
+      const head = {
+        ok:   { icon: 'checkcircle', cls: 'safe' },
+        pend: { icon: 'alert',       cls: 'caution' },
+        bad:  { icon: 'xcircle',     cls: 'danger' }
+      }[verdict];
       out.innerHTML =
-        `<div class="result ${verdict}"><h3>${esc(title)}</h3><p>${esc(advice)}</p></div>
+        `<div class="verdict ${head.cls}">
+           <div class="verdict-ico">${Icon(head.icon, 26)}</div>
+           <div><h3>${esc(T()[verdict === 'ok' ? 'safe' : verdict === 'pend' ? 'caution' : 'danger'])}</h3>
+             <p>${esc(advice)}</p></div>
+         </div>
          <div class="section-title">${esc(T().checks)}</div>
          <div class="card">${checks.map((c) =>
-            `<div class="kv"><span>${icon[c.level]}</span><span style="text-align:right">${esc(c.text)}</span></div>`).join('')}</div>`;
+            `<div class="check-row"><span class="${markCls[c.level]}">${mark[c.level]}</span><span>${esc(c.text)}</span></div>`).join('')}</div>`;
 
       // gateway panel
       const gwBox = el('div', 'gw-box');
       if (gwState === 'running') {
-        gwBox.innerHTML = `<div class="head"><b>${esc(T().gatewayTitle)}</b>
-          <span class="gw-status PENDING"><span class="spinner"></span> ${esc(T().gatewayRunning)}</span></div>`;
+        gwBox.innerHTML = `<div class="gw-head"><b>${esc(T().gatewayTitle)}</b>
+          <span class="gw-status pend"><span class="spinner"></span>${esc(T().gatewayRunning)}</span></div>`;
       } else if (gwState === 'skipped') {
-        gwBox.innerHTML = `<div class="head"><b>${esc(T().gatewayTitle)}</b>
+        gwBox.innerHTML = `<div class="gw-head"><b>${esc(T().gatewayTitle)}</b>
           <span class="gw-status UNKNOWN">${esc(T().gatewaySkipped)}</span></div>`;
       } else if (gw) {
+        const chipCls = gw.status === 'SUCCESS' ? 'ok' : gw.status === 'PENDING' ? 'pend' : 'bad';
         gwBox.innerHTML =
-          `<div class="head"><b>${esc(T().gatewayTitle)}</b>
-             <span class="gw-status ${esc(gw.status)}">${esc(gw.status)}</span></div>
+          `<div class="gw-head"><b>${esc(T().gatewayTitle)}</b>
+             <span class="gw-status ${chipCls}">${esc(gw.status)}</span></div>
            <div class="kv"><span>${esc(gwStatusText(gw.status))}</span><span></span></div>
            ${gw.payerName ? `<div class="kv"><span>${esc(T().fPayee)}</span><span>${esc(gw.payerName)}</span></div>` : ''}
            ${gw.amount ? `<div class="kv"><span>${esc(T().fAmount)}</span><span>${inr(gw.amount)}</span></div>` : ''}
@@ -588,10 +607,10 @@
       });
       actions.innerHTML =
         `<div class="share-bar">
-           <button class="btn wa-btn" id="v-wa" type="button">🟢 ${esc(T().share)}</button>
-           <button class="btn copy-btn" id="v-cp" type="button">⧉ ${esc(T().copy)}</button>
+           <button class="btn wa-btn" id="v-wa" type="button">${Icon('chat', 17)} ${esc(T().share)}</button>
+           <button class="btn copy-btn" id="v-cp" type="button">${Icon('copy', 17)} ${esc(T().copy)}</button>
          </div>
-         <button class="btn sm" id="v-add" type="button" style="margin-top:8px">＋ ${esc(T().addPaymentBtn)}</button>`;
+         <button class="btn sm" id="v-add" type="button" style="margin-top:8px">${Icon('plus', 16)} ${esc(T().addPaymentBtn)}</button>`;
       out.appendChild(actions);
       $('#v-wa', actions).onclick = () => Share.open(summary);
       $('#v-cp', actions).onclick = async () => toast((await Share.copy(summary)) ? T().copied : T().copy);
@@ -671,14 +690,14 @@
     const defaultName = saved.name || merchantName();
     const defaultVpa = saved.vpa || state.vpa || '';
     const card = el('div', 'card',
-      `<p style="margin:0 0 12px;font-size:12.5px;color:#9fb0cd;line-height:1.5">${esc(T().qrIntro)}</p>
+      `<p class="card-intro">${esc(T().qrIntro)}</p>
        <div class="field"><label>${esc(T().qrPayeeName)}</label><input id="q-name" value="${esc(defaultName)}"></div>
        <div class="field"><label>${esc(T().qrVpa)}</label><input id="q-vpa" value="${esc(defaultVpa)}" placeholder="store@okaxis"></div>
        <div class="row2">
          <div class="field"><label>${esc(T().qrAmount)}</label><input id="q-amt" type="number" inputmode="decimal" value="${esc(saved.amt || '')}" placeholder="0"></div>
          <div class="field"><label>${esc(T().qrNote)}</label><input id="q-note" value="${esc(saved.note || '')}" placeholder="Order #101"></div>
        </div>
-       <button class="btn" id="q-go" type="button">▦ ${esc(T().generate)}</button>`);
+       <button class="btn" id="q-go" type="button">${Icon('qr', 18)} ${esc(T().generate)}</button>`);
     v.appendChild(card);
 
     const box = el('div', 'qr-wrap');
@@ -689,8 +708,8 @@
 
     const actions = el('div', 'share-bar');
     actions.innerHTML =
-      `<button class="btn wa-btn" id="q-wa" type="button">🟢 ${esc(T().sendQr)}</button>
-       <button class="btn copy-btn" id="q-cp" type="button">⧉ ${esc(T().copy)}</button>`;
+      `<button class="btn wa-btn" id="q-wa" type="button">${Icon('chat', 17)} ${esc(T().sendQr)}</button>
+       <button class="btn copy-btn" id="q-cp" type="button">${Icon('copy', 17)} ${esc(T().copy)}</button>`;
     v.appendChild(actions);
 
     const gen = () => {
@@ -750,26 +769,56 @@
       `<div class="set-row"><div><div class="lbl">${esc(T().gatewaySection)}</div>
          <div class="sub">${esc(T().gatewayMode)}</div></div>
          <span class="mode-pill ${cfg.mode === 'live' ? 'live' : 'sandbox'}">${esc(cfg.mode === 'live' ? T().live : T().sandbox)}</span></div>
+       <div class="set-row col"><div class="lbl"><span>${esc(T().provider)}</span>
+         <span class="sub">${esc(T().providerHint)}</span></div>
+         <select id="s-provider">
+           <option value="generic"${cfg.provider === 'generic' ? ' selected' : ''}>Generic HTTP endpoint</option>
+           <option value="razorpay"${cfg.provider === 'razorpay' ? ' selected' : ''}>Razorpay (via your proxy)</option>
+         </select></div>
        <div class="set-row col"><div class="lbl"><span>${esc(T().gatewayMode)}</span></div>
          <select id="s-mode">
            <option value="sandbox"${cfg.mode === 'sandbox' ? ' selected' : ''}>${esc(T().sandbox)}</option>
            <option value="live"${cfg.mode === 'live' ? ' selected' : ''}>${esc(T().live)}</option>
          </select></div>
-       <div class="set-row col"><div class="lbl"><span>${esc(T().endpoint)}</span></div>
+       <div class="set-row col"><div class="lbl"><span>${esc(T().endpoint)}</span>
+         <span class="sub" id="s-ep-hint">${esc(Gateway.presets()[cfg.provider].hint)}</span></div>
          <input id="s-endpoint" value="${esc(cfg.endpoint)}" placeholder="https://api.example.com/v1/payments/verify"></div>
-       <div class="set-row col"><div class="lbl"><span>${esc(T().apiKey)}</span></div>
+       <div class="set-row col"><div class="lbl"><span id="s-key-lbl">${esc(T().apiKey)}</span></div>
          <input id="s-key" type="password" value="${esc(cfg.apiKey)}" placeholder="sk_live_…"></div>
+       <div class="set-row col" id="s-secret-row"><div class="lbl"><span>${esc(T().apiSecret)}</span></div>
+         <input id="s-secret" type="password" value="${esc(cfg.apiSecret)}" placeholder="••••••••"></div>
        <div class="set-row col"><div class="lbl"><span>${esc(T().authStyle)}</span></div>
          <select id="s-auth">
-           ${['bearer', 'x-api-key', 'query'].map((a) => `<option value="${a}"${cfg.authStyle === a ? ' selected' : ''}>${a}</option>`).join('')}
+           ${['bearer', 'x-api-key', 'query', 'basic'].map((a) => `<option value="${a}"${cfg.authStyle === a ? ' selected' : ''}>${a}</option>`).join('')}
          </select></div>
        <div class="set-row"><div><div class="lbl">${esc(T().timeout)}</div></div>
          <input id="s-timeout" type="number" min="2" max="60" value="${cfg.timeoutMs / 1000}" style="width:80px"></div>
        <div class="set-row"><div><div class="lbl">${esc(T().autoCheck)}</div></div>
          <label class="switch"><input id="s-auto" type="checkbox"${cfg.autoCheck ? ' checked' : ''}>
            <span class="track"></span><span class="knob"></span></label></div>
-       <div class="set-row"><button class="btn sm" id="s-save-gw" type="button">${esc(T().saveSettings)}</button></div>`);
+       <div class="set-row"><button class="btn sm" id="s-save-gw" type="button">${esc(T().saveSettings)}</button></div>
+       <p class="set-note">${esc(T().secretNote)}</p>`);
     v.appendChild(gw);
+
+    // Live provider hints
+    const providerSel = $('#s-provider', gw);
+    const syncProvider = () => {
+      const p = providerSel.value;
+      const preset = Gateway.presets()[p];
+      $('#s-ep-hint', gw).textContent = preset.hint;
+      const rzp = p === 'razorpay';
+      $('#s-key-lbl', gw).textContent = rzp ? T().proxyUser : T().apiKey;
+      $('#s-secret-row', gw).hidden = !(rzp || $('#s-auth', gw).value === 'basic');
+      if (rzp && !$('#s-endpoint', gw).value) $('#s-endpoint', gw).value = preset.endpoint;
+      $('#s-auth', gw).value = preset.authStyle;
+      syncAuth();
+    };
+    const syncAuth = () => {
+      $('#s-secret-row', gw).hidden = !(providerSel.value === 'razorpay' || $('#s-auth', gw).value === 'basic');
+    };
+    providerSel.onchange = syncProvider;
+    $('#s-auth', gw).onchange = syncAuth;
+    syncProvider();
 
     // security
     const sec = el('div', 'set-group',
@@ -787,17 +836,19 @@
     // data
     const data = el('div', 'set-group',
       `<div class="set-row col"><div class="lbl">${esc(T().data)}</div></div>
-       <div class="set-row"><button class="btn sm ghost" id="s-export" type="button">⬇ ${esc(T().exportData)}</button>
-         <button class="btn sm ghost" id="s-import" type="button">⬆ ${esc(T().importData)}</button></div>
+       <div class="set-row"><button class="btn sm ghost" id="s-export" type="button">${Icon('download', 16)} ${esc(T().exportData)}</button>
+         <button class="btn sm ghost" id="s-import" type="button">${Icon('upload', 16)} ${esc(T().importData)}</button></div>
        <div class="set-row"><button class="btn sm ghost" id="s-reset" type="button">${esc(T().resetDemo)}</button></div>`);
     v.appendChild(data);
 
     // handlers
     $('#s-save-gw', gw).onclick = () => {
       Gateway.setConfig(uidr, {
+        provider: $('#s-provider', gw).value,
         mode: $('#s-mode', gw).value,
         endpoint: $('#s-endpoint', gw).value.trim(),
         apiKey: $('#s-key', gw).value,
+        apiSecret: $('#s-secret', gw).value,
         authStyle: $('#s-auth', gw).value,
         timeoutMs: Math.max(2, Math.min(60, Number($('#s-timeout', gw).value) || 12)) * 1000,
         autoCheck: $('#s-auto', gw).checked
@@ -867,6 +918,14 @@
     }
     const shop = $('#shopName');
     if (shop) shop.textContent = u.shop || T().tagline;
+    paintLogos();
+  }
+
+  /* A plain mark: rupee glyph knocked out of a solid tile. No gradient. */
+  function paintLogos() {
+    const mark = `<span class="logo-glyph">₹</span>`;
+    const a = $('#authLogo'); if (a) a.innerHTML = mark;
+    const b = $('#brandLogo'); if (b) b.innerHTML = mark;
   }
 
   function render() {

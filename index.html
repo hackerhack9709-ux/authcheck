@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-<meta name="theme-color" content="#0b1220" />
+<meta name="theme-color" content="#0a0d13" />
 <meta name="description" content="Verify a UPI payment before handing over the goods. Track payments, check a payer against your records, and generate a UPI collect QR." />
 <meta name="mobile-web-app-capable" content="yes" />
 <meta name="apple-mobile-web-app-capable" content="yes" />
@@ -21,15 +21,15 @@
 <section id="authScreen" class="auth-screen">
   <div class="auth-wrap">
     <div class="auth-hero">
-      <div class="logo big">₹</div>
+      <div class="logo big" id="authLogo"></div>
       <h1>PayCheck</h1>
       <p class="auth-tagline" data-i18n="authTagline">
         Verify the payment before you hand over the goods.
       </p>
       <ul class="auth-points">
-        <li data-i18n="authPoint1">Track every UPI payment you receive</li>
-        <li data-i18n="authPoint2">Check a payer against your own records</li>
-        <li data-i18n="authPoint3">Generate a UPI QR to collect money</li>
+        <li><span data-icon="activity"></span><span data-i18n="authPoint1">Track every UPI payment you receive</span></li>
+        <li><span data-icon="search"></span><span data-i18n="authPoint2">Check a payer against your own records</span></li>
+        <li><span data-icon="qr"></span><span data-i18n="authPoint3">Generate a UPI QR to collect money</span></li>
       </ul>
     </div>
 
@@ -78,7 +78,7 @@
 <div class="phone" id="mainScreen" hidden>
   <header class="topbar">
     <div class="brand">
-      <div class="logo">₹</div>
+      <div class="logo" id="brandLogo"></div>
       <div class="brand-text">
         <strong data-i18n="appName">PayCheck</strong>
         <span id="shopName" data-i18n="tagline">UPI payment verifier</span>
@@ -86,9 +86,9 @@
     </div>
     <div class="topbar-actions">
       <button class="lang-btn" id="langBtn" type="button" title="Change language">हिं</button>
-      <button class="icon-btn" id="installBtn" type="button" title="Install app" hidden>⬇</button>
+      <button class="icon-btn" id="installBtn" type="button" title="Install app" hidden data-icon="download"></button>
       <button class="user-chip" id="userChip" type="button" title="Account"></button>
-      <button class="icon-btn" id="logoutBtn" type="button" title="Sign out">⎋</button>
+      <button class="icon-btn" id="logoutBtn" type="button" title="Sign out" data-icon="logout"></button>
     </div>
   </header>
 
@@ -96,19 +96,19 @@
 
   <nav class="tabbar">
     <button class="tab active" data-tab="tx" type="button">
-      <span class="tab-ico">🧾</span><span data-i18n="tabTx">Payments</span>
+      <span class="tab-ico" data-icon="receipt"></span><span data-i18n="tabTx">Payments</span>
     </button>
     <button class="tab" data-tab="add" type="button">
-      <span class="tab-ico">➕</span><span data-i18n="tabAdd">Add</span>
+      <span class="tab-ico" data-icon="plus"></span><span data-i18n="tabAdd">Add</span>
     </button>
     <button class="tab" data-tab="verify" type="button">
-      <span class="tab-ico">🛡️</span><span data-i18n="tabVerify">Verify</span>
+      <span class="tab-ico" data-icon="shield"></span><span data-i18n="tabVerify">Verify</span>
     </button>
     <button class="tab" data-tab="qr" type="button">
-      <span class="tab-ico">▦</span><span data-i18n="tabQr">QR</span>
+      <span class="tab-ico" data-icon="qr"></span><span data-i18n="tabQr">QR</span>
     </button>
     <button class="tab" data-tab="settings" type="button">
-      <span class="tab-ico">⚙️</span><span data-i18n="tabSettings">Settings</span>
+      <span class="tab-ico" data-icon="settings"></span><span data-i18n="tabSettings">Settings</span>
     </button>
   </nav>
 </div>
@@ -117,11 +117,16 @@
 <div id="modalHost"></div>
 
 <script src="vendor/qrcode.min.js"></script>
+<script src="icons.js"></script>
 <script src="auth.js"></script>
 <script src="gateway.js"></script>
 <script src="share.js"></script>
 <script src="app.js"></script>
 <script>
+  // Hydrate declarative icon placeholders: <span data-icon="name">.
+  document.querySelectorAll('[data-icon]').forEach((n) => {
+    if (window.Icon) n.innerHTML = window.Icon(n.dataset.icon, n.classList.contains('tab-ico') ? 21 : 18);
+  });
   if ('serviceWorker' in navigator) {
     window.addEventListener('load', () => {
       navigator.serviceWorker.register('sw.js').catch(() => {});
