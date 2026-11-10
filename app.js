@@ -11,7 +11,6 @@
   const STORE_LANG = 'paycheck.lang.v1';
   const STORE_TX = 'paycheck.txns.v1';
   const STORE_QR = 'paycheck.qr.v1';
-  const STORE_NOTIFIED = 'paycheck.notified.v1';
 
   /* ------------------------------- i18n -------------------------------- */
   const I18N = {
@@ -20,7 +19,7 @@
       tabTx: 'Payments', tabAdd: 'Add', tabVerify: 'Verify', tabQr: 'QR', tabSettings: 'Settings',
       bannerTitle: 'Beware of online fraud',
       bannerText: 'Check the money first, then hand over the goods. Never trust a screenshot — confirm inside your bank app.',
-      totalReceived: 'Received this month', txnCount: 'Payments', success: 'Successful', pending: 'Pending',
+      totalReceived: 'Total received', txnCount: 'Payments', success: 'Successful', pending: 'Pending',
       searchPh: 'Search name, UPI ID, amount or UTR…',
       all: 'All', dateFilter: 'Date', methodFilter: 'Method',
       anyDate: 'Any date', anyMethod: 'Any method',
@@ -104,7 +103,7 @@
       tabTx: 'लेन-देन', tabAdd: 'जोड़ें', tabVerify: 'जाँचें', tabQr: 'QR', tabSettings: 'सेटिंग',
       bannerTitle: 'ऑनलाइन धोखाधड़ी से सावधान',
       bannerText: 'पैसा पहले जाँचें, फिर सामान दें। स्क्रीनशॉट पर भरोसा न करें — बैंक ऐप में खुद देखें।',
-      totalReceived: 'इस महीने कुल प्राप्त', txnCount: 'लेन-देन', success: 'सफल', pending: 'प्रतीक्षित',
+      totalReceived: 'कुल प्राप्त', txnCount: 'लेन-देन', success: 'सफल', pending: 'प्रतीक्षित',
       searchPh: 'नाम, UPI ID, रकम या UTR खोजें…',
       all: 'सभी', dateFilter: 'तारीख़', methodFilter: 'तरीक़ा',
       anyDate: 'कोई भी तारीख़', anyMethod: 'कोई भी तरीक़ा',
@@ -657,14 +656,18 @@
   }
 
   /* ----------------------------- view: qr ------------------------------- */
+  /* UPI deep links are parsed by many different wallet apps. URLSearchParams
+     writes a space as "+" and "@" as "%40"; some apps render the "+" literally
+     and a few fail to decode "%40". So encode each value with encodeURIComponent
+     (space -> %20) and keep "@" literal — the form every UPI app accepts. */
   function buildUpi(name, vpa, amount, note) {
-    const p = new URLSearchParams();
-    p.set('pa', vpa);
-    if (name) p.set('pn', name);
-    if (amount) p.set('am', Number(amount).toFixed(2));
-    p.set('cu', 'INR');
-    if (note) p.set('tn', note);
-    return 'upi://pay?' + p.toString();
+    const enc = (s) => encodeURIComponent(String(s)).replace(/%40/g, '@');
+    const parts = ['pa=' + enc(vpa)];
+    if (name) parts.push('pn=' + enc(name));
+    if (amount) parts.push('am=' + Number(amount).toFixed(2));
+    parts.push('cu=INR');
+    if (note) parts.push('tn=' + enc(note));
+    return 'upi://pay?' + parts.join('&');
   }
 
   function renderQr(node, text) {
@@ -732,7 +735,10 @@
       Share.open(Share.collect({ merchant: cur.name, vpa: cur.vpa, amount: cur.amt, note: cur.note }));
     };
     $('#q-cp', v).onclick = async () => {
-      const text = state.qr && state.qr.upi ? state.qr.upi : '';
+      // Build the link from the current fields if the QR has not been generated
+      // yet, so Copy is never a no-op.
+      const text = (state.qr && state.qr.upi) ? state.qr.upi : (gen() || '');
+      if (!text) return;
       toast((await Share.copy(text)) ? T().copied : T().copy);
     };
     requestAnimationFrame(() => { if (defaultVpa) gen(); });

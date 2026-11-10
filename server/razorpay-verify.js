@@ -135,8 +135,27 @@ async function handleVerify(req, res, paymentId) {
 }
 
 /* --------------------------- static files ----------------------------- */
+/* Only these paths are ever served. An allowlist — not a blocklist — so a
+   stray .env, .git/, server/ source, or any other file that lands in ROOT is
+   never exposed. Everything the browser needs is listed here. */
+const PUBLIC_FILES = new Set([
+  '/', '/index.html', '/styles.css', '/app.js', '/auth.js', '/gateway.js',
+  '/share.js', '/icons.js', '/sw.js', '/manifest.webmanifest',
+  '/vendor/qrcode.min.js',
+  '/icon-192.png', '/icon-512.png', '/icon-maskable-512.png',
+  '/favicon.ico', '/robots.txt'
+]);
+
 function serveStatic(req, res, urlPath) {
-  const rel = decodeURIComponent(urlPath === '/' ? '/index.html' : urlPath);
+  let rel;
+  try { rel = decodeURIComponent(urlPath); } catch { return send(res, 400, { message: 'Bad request' }); }
+  if (rel === '') rel = '/';
+  if (rel.includes('\0')) return send(res, 400, { message: 'Bad request' });
+
+  // Trailing-slash directory requests resolve to index.html.
+  if (rel === '/') rel = '/index.html';
+  if (PUBLIC_FILES.has(rel) === false) return send(res, 404, { message: 'Not found' });
+
   const file = path.join(ROOT, rel);
   if (!file.startsWith(ROOT + path.sep)) return send(res, 403, { message: 'Forbidden' });
   fs.stat(file, (err, st) => {

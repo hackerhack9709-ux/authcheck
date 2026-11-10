@@ -17,7 +17,6 @@ COPY --chown=node:node index.html styles.css app.js auth.js gateway.js icons.js 
 COPY --chown=node:node manifest.webmanifest ./
 COPY --chown=node:node vendor/ ./vendor/
 COPY --chown=node:node icon-192.png icon-512.png icon-maskable-512.png ./
-COPY --chown=node:node README.md AGENTS.md ./
 
 # Run as the built-in unprivileged user.
 USER node
