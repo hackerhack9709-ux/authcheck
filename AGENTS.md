@@ -86,3 +86,19 @@ otherwise `auth.js` falls back to a weak hash and shows a warning.
   kept serving the previous `app.js` for one extra load after a deploy.
 - `buildUpi()` keeps `@` literal and encodes spaces as `%20` (not `%40`/`+`) — some UPI apps
   fail to parse the percent-encoded forms.
+
+## Agent tooling (MCP)
+`scripts/setup-mcp.sh` registers a curated set of MCP servers with the local
+OpenHands agent server (`openhands-agent-server`, default `http://127.0.0.1:60000`).
+Servers are stored in `~/.openhands/settings.json` and load at **conversation
+start** — a running conversation does not pick up new servers.
+
+Endpoint: `POST /api/settings/mcp/{key}` with header `X-Session-API-Key: $SESSION_API_KEY`
+(the key is in the agent-server process environment; `GET /api/settings` shows the
+current `mcp_config`). `POST /api/mcp/test` verifies a server and can invoke one tool.
+
+Verified working: `memory` (npx), `sequential` (npx), `github` (npx, needs
+`GITHUB_PERSONAL_ACCESS_TOKEN`), `puppeteer` (npx), `fetch` (uvx), `time` (uvx),
+`git` (uvx), `filesystem` (npx). The npm `server-fetch`/`server-git`/`server-sqlite`
+packages are deprecated — use the `uvx` (`mcp-server-*`) equivalents instead.
+This is developer tooling; the Dockerfile does not copy `scripts/`.
